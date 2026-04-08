@@ -135,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         <div class="auth-card">
             
             <div class="auth-left">
-                <img src="pic/logo.png" alt="DiffCheck Logo" class="auth-image">
+                <img src="pic/logoV4.png" alt="DiffCheck Logo" class="auth-image">
                 <p>Already have an account? <br><a href="login.php">Login here</a></p>
             </div>
 
