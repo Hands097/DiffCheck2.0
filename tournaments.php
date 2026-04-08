@@ -90,27 +90,11 @@ $result = mysqli_query($conn, $sql);
             gap: 12px;
         }
 
-        .logo-box {
-            width: 38px; height: 38px;
-            background: var(--teal);
-            border-radius: 6px;
-            display: flex; align-items: center; justify-content: center;
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 10px; font-weight: 700;
-            color: #000;
-            line-height: 1.1;
-            text-align: center;
+        .logo-image {
+            height: 36px;
+            object-fit: contain;
             flex-shrink: 0;
         }
-
-        .topbar-title {
-            font-family: 'Rajdhani', sans-serif;
-            font-size: 20px; font-weight: 700;
-            letter-spacing: 1.5px;
-            color: var(--text-primary);
-            text-transform: uppercase;
-        }
-        .topbar-title span { color: var(--teal); }
 
         .topbar-back {
             display: flex; align-items: center; gap: 6px;
@@ -632,8 +616,7 @@ $result = mysqli_query($conn, $sql);
 
 <header class="topbar">
     <div class="topbar-left">
-        <div class="logo-box">DIFF<br>CHECK</div>
-        <div class="topbar-title">DIFF<span>CHECK</span></div>
+        <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" class="logo-image">
     </div>
 
     <div class="topbar-right">
