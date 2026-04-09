@@ -656,9 +656,17 @@ $result = mysqli_query($conn, $sql);
 
 <header class="topbar">
     <div class="topbar-left">
+    <a href="
+        <?php
+            if (strtolower($_SESSION['role']) === 'admin') echo 'admin_dashboard.php';
+            elseif (strtolower($_SESSION['role']) === 'manager') echo 'manager_dashboard.php';
+            elseif (strtolower($_SESSION['role']) === 'organizer') echo 'organizer_dashboard.php';
+            else echo 'index.php';
+        ?>
+    ">
         <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" class="logo-image">
-    </div>
-
+    </a>
+</div>
     <div class="topbar-right">
         <a href="index.php" class="topbar-back">← Back to Home</a>
 
