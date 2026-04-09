@@ -18,6 +18,7 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DiffCheck – Welcome</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <style>
         :root {
             --bg-deep:       #0a0d10;
