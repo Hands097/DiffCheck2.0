@@ -30,8 +30,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         } else {
             // NOTE: If you are using plain text passwords, keep it as $password. 
             // If you want it hashed, use password_hash($password, PASSWORD_DEFAULT)
-            $insert = mysqli_query($conn, "INSERT INTO users (username, email, password, role) VALUES ('$username', '$email', '$password', '$role')");
-            
+    $hashed_password = password_hash($password, PASSWORD_DEFAULT);
+    $insert = mysqli_query($conn, "INSERT INTO users (username, email, password, role) VALUES ('$username', '$email', '$hashed_password', '$role')");
+    
             if ($insert) {
                 // Auto-login after successful registration
                 $_SESSION['user_id'] = mysqli_insert_id($conn);
