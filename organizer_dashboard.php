@@ -198,7 +198,7 @@ $js_monthly_data   = json_encode(array_column($monthly_t, 'count'));
         .main-header { height: var(--topbar-h); padding: 0 30px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); flex-shrink: 0; background: rgba(13, 17, 23, 0.8); backdrop-filter: blur(10px); }
         .page-title { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; color: #fff; letter-spacing: 1px; text-transform: uppercase; }
 
-        .content-body { flex: 1; padding: 30px; overflow-y: auto; max-width: 1400px; margin: 0 auto; width: 100%; }
+        .content-body { flex: 1; padding: 30px; overflow-y: auto; width: 100%; }
 
         /* ── TABS ── */
         .tab-content { display: none; animation: fadeIn 0.3s ease; }
