@@ -505,7 +505,7 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
                         </a>
                         <div class="dropdown-divider"></div>
                         <a onclick="document.getElementById('signout-modal').classList.add('active')" class="dropdown-item logout" style="cursor:pointer;">
-                            <span class="di-icon">⏻</span> Log Out
+                            <span class="di-icon">⏻</span> Sign Out
                         </a>
                     </div>
                 </div>
