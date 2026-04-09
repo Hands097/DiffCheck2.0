@@ -8,6 +8,6 @@ $_SESSION = array();
 session_destroy();
 
 // 3. Send them back to login
-header("Location: login.php");
+header("Location: index.php");
 exit();
 ?>

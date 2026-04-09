@@ -226,6 +226,45 @@ $js_sq_data        = json_encode(array_column($squad_games, 'cnt'));
 
         .btn-delete { background: transparent; color: var(--teal); border: 1px solid var(--teal); padding: 6px 12px; border-radius: 4px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 12px; font-family: 'Exo 2', sans-serif; display: inline-flex; align-items: center; gap: 5px; }
         .btn-delete:hover { background: var(--teal); color: #000; }
+
+        /* added modal style */
+        .modal-overlay {
+        display: none; position: fixed; inset: 0; z-index: 9999;
+        background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
+        align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }
+        .modal-box {
+        background: var(--bg-card); border: 1px solid var(--border-accent);
+        border-radius: 14px; padding: 40px 36px; width: 360px; max-width: 90vw;
+        text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+        animation: slideUp 0.25s ease;
+        }
+        @keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+        .modal-icon {
+            width: 64px; height: 64px; border-radius: 50%;
+            background: rgba(0,194,203,0.1); border: 1px solid rgba(0,194,203,0.25);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; color: var(--teal); margin: 0 auto 20px;
+        }
+        .modal-title {
+            font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700;
+            color: #fff; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;
+        }
+        .modal-text { color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin-bottom: 28px; }
+        .modal-actions { display: flex; gap: 12px; }
+        .btn-modal-cancel {
+            flex: 1; padding: 12px; border: 1px solid var(--border-accent); border-radius: 6px;
+            background: transparent; color: var(--text-secondary); font-family: 'Rajdhani', sans-serif;
+            font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+        }
+        .btn-modal-confirm {
+            flex: 1; padding: 12px; border: none; border-radius: 6px;
+            background: var(--teal); color: #000; font-family: 'Rajdhani', sans-serif;
+            font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+            cursor: pointer; text-decoration: none; display: inline-flex;
+            align-items: center; justify-content: center; gap: 8px;
+        }
     </style>
 </head>
 <body>
@@ -247,7 +286,7 @@ $js_sq_data        = json_encode(array_column($squad_games, 'cnt'));
         <a href="index.php" class="nav-item"><i class="fa-solid fa-globe"></i> View Homepage</a>
 
         <div class="nav-category">System</div>
-        <a href="logout.php" class="nav-item" style="color: var(--teal);"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+        <a onclick="document.getElementById('signout-modal').classList.add('active')" class="nav-item" style="color: var(--teal); cursor:pointer;"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
     </nav>
 
     <div class="sidebar-footer">
@@ -535,6 +574,23 @@ $js_sq_data        = json_encode(array_column($squad_games, 'cnt'));
         document.getElementById('page-title-display').innerText = titleMap[tabId];
     }
 </script>
-
+    <div id="signout-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+        <div class="modal-box">
+            <div class="modal-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+            <div class="modal-title">Sign Out</div>
+            <div class="modal-text">
+                Are you sure you want to sign out?<br>
+                <span style="color: var(--text-muted); font-size: 12px;">Your session will be ended and you'll be redirected to the homepage.</span>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-modal-cancel" onclick="document.getElementById('signout-modal').classList.remove('active')">
+                    <i class="fa-solid fa-xmark"></i> Cancel
+                </button>
+                <a href="logout.php" class="btn-modal-confirm">
+                    <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+                </a>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
