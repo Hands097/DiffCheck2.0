@@ -487,7 +487,7 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
 
     <div class="topbar-right">
         <?php if (!isset($_SESSION['user_id'])): ?>
-            <a href="login.php" class="btn-login">Log In</a>
+            <a href="login.php" class="btn-login">Sign In</a>
             <a href="register.php" class="btn-register">Register</a>
         <?php else: ?>
             <div class="user-menu" id="userMenu">

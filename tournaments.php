@@ -697,7 +697,7 @@ $result = mysqli_query($conn, $sql);
         </div>
         <?php else: ?>
         <div class="guest-actions">
-            <a href="login.php" class="btn-login">Log In</a>
+            <a href="login.php" class="btn-login">Sign In</a>
             <a href="register.php" class="btn-register">Register</a>
         </div>
         <?php endif; ?>
