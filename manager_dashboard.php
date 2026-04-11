@@ -233,7 +233,7 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
 
         .form-group { margin-bottom: 20px; }
         .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
-        .form-control { width: 100%; padding: 12px 15px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-accent); color: var(--text-primary); font-family: 'Exo 2', sans-serif; font-size: 14px; border-radius: 6px; outline: none; transition: border-color .2s; }
+        .form-control { width: 100%; padding: 12px 15px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-accent); color: var(--text-primary); font-family: 'Exo 2', sans-serif; font-size: 14px; border-radius: 6px; outline: none; transition: border-color .2s; appearance: none; -webkit-appearance: none; }
         .form-control:focus { border-color: var(--teal); }
         select[multiple] { height: 150px; }
         select[multiple] option { padding: 8px 10px; margin-bottom: 2px; border-radius: 4px; }
@@ -581,11 +581,11 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
                                         </td>
                                         <td>
                                             <?php if ($r['t_status'] === 'pending'): ?>
-                                                <form method="POST" style="display:inline;" onsubmit="return confirm('Are you absolutely sure you want to back out?');">
+                                                <form method="POST" style="display:inline;" id="cancel-reg-form">
                                                     <input type="hidden" name="reg_id" value="<?php echo $r['reg_id']; ?>">
-                                                    <button type="submit" name="cancel_registration" class="btn-action btn-danger">
-                                                        <i class="fa-solid fa-right-from-bracket"></i> Cancel Registration
-                                                    </button>
+                                                        <button type="button" class="btn-action btn-danger" onclick="document.getElementById('cancel-reg-modal').classList.add('active')">
+                                                            <i class="fa-solid fa-xmark"></i> Cancel Registration
+                                                        </button>
                                                 </form>
                                             <?php else: ?>
                                                 <span style="font-size: 11px; color: var(--text-muted); font-style: italic;"><i class="fa-solid fa-lock"></i> Cannot back out</span>
@@ -851,6 +851,22 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Cancel Registration Modal -->
+<div id="cancel-reg-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="modal-title">Cancel Registration</div>
+        <div class="modal-text">Are you absolutely sure you want to back out?<br>
+            <span style="color:var(--text-muted); font-size:12px;">This action cannot be undone.</span>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('cancel-reg-modal').classList.remove('active')">Go Back</button>
+            <button class="btn-modal-confirm" onclick="document.getElementById('cancel-reg-form').submit()"><i class="fa-solid fa-xmark"></i> Confirm</button>
+        </div>
+    </div>
+</div>
+
 
 </body>
 </html>

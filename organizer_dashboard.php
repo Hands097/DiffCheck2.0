@@ -436,7 +436,7 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
         /* ── FORMS ── */
         .form-group { margin-bottom: 20px; }
         .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
-        .form-control { width: 100%; padding: 12px 15px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-accent); color: var(--text-primary); font-family: 'Exo 2', sans-serif; font-size: 14px; border-radius: 6px; outline: none; transition: border-color .2s; }
+        .form-control { width: 100%; padding: 12px 15px; background: rgba(0,0,0,0.3); border: 1px solid var(--border-accent); color: var(--text-primary); font-family: 'Exo 2', sans-serif; font-size: 14px; border-radius: 6px; outline: none; transition: border-color .2s; appearance: none; -webkit-appearance: none; }
         .form-control:focus { border-color: var(--teal); }
         textarea.form-control { resize: vertical; min-height: 80px; }
         .btn-submit { display: inline-block; padding: 14px 24px; background: var(--teal); color: #000; border: none; border-radius: 6px; font-family: 'Rajdhani', sans-serif; font-size: 16px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: 0.3s; width: 100%; }
@@ -814,9 +814,11 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
                                         <div class="action-cell">
                                             <?php if ($t['status'] === 'pending'): ?>
                                                 <?php if ($reg_count >= 3): ?>
-                                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Lock the bracket? No more registrations will be accepted!');">
+                                                    <form method="POST" style="display:inline;" id="lock-bracket-form">
                                                         <input type="hidden" name="tournament_id" value="<?php echo $t['id']; ?>">
-                                                        <button type="submit" name="start_tournament" class="btn-action btn-success"><i class="fa-solid fa-play"></i> Start / Lock Bracket</button>
+                                                            <button type="button" class="btn-action" onclick="document.getElementById('lock-bracket-modal').classList.add('active')">
+                                                                <i class="fa-solid fa-lock"></i> Lock Bracket
+                                                            </button>
                                                     </form>
                                                 <?php else: ?>
                                                     <button type="button" class="btn-action" style="opacity:0.5;cursor:not-allowed;" onclick="alert('You need a minimum of 3 accepted squads to start the tournament!')">
@@ -824,9 +826,11 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
                                                     </button>
                                                 <?php endif; ?>
                                             <?php elseif ($t['status'] === 'active'): ?>
-                                                <form method="POST" style="display:inline;" onsubmit="return confirm('Mark tournament as fully completed?');">
+                                                <form method="POST" style="display:inline;" id="complete-tournament-form">
                                                     <input type="hidden" name="tournament_id" value="<?php echo $t['id']; ?>">
-                                                    <button type="submit" name="complete_tournament" class="btn-action"><i class="fa-solid fa-flag-checkered"></i> Mark Completed</button>
+                                                        <button type="button" class="btn-action" onclick="document.getElementById('complete-tournament-modal').classList.add('active')">
+                                                            <i class="fa-solid fa-flag-checkered"></i> Complete
+                                                        </button>
                                                 </form>
                                             <?php else: ?>
                                                 <span style="font-size:11px;color:var(--text-muted);font-style:italic;">Event Closed</span>
@@ -945,9 +949,11 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
                                     <td><?php echo htmlspecialchars($arc['max_teams']); ?></td>
                                     <td><?php echo date("M j, Y", strtotime($arc['created_at'])); ?></td>
                                     <td>
-                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Restore this tournament?');">
+                                        <form method="POST" style="display:inline;" id="restore-tournament-form">
                                             <input type="hidden" name="tournament_id" value="<?php echo $arc['id']; ?>">
-                                            <button type="submit" name="restore_tournament" class="btn-action btn-success"><i class="fa-solid fa-trash-arrow-up"></i> Restore</button>
+                                                <button type="button" class="btn-action" onclick="document.getElementById('restore-tournament-modal').classList.add('active')">
+                                                    <i class="fa-solid fa-rotate-left"></i> Restore
+                                                </button>
                                         </form>
                                     </td>
                                 </tr>
@@ -1417,6 +1423,49 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 </script>
+
+<!-- Lock Bracket Modal -->
+<div id="lock-bracket-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-lock"></i></div>
+        <div class="modal-title">Lock Bracket</div>
+        <div class="modal-text">Lock the bracket? No more registrations will be accepted!<br>
+            <span style="color:var(--text-muted); font-size:12px;">This cannot be undone.</span>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('lock-bracket-modal').classList.remove('active')">Cancel</button>
+            <button class="btn-modal-confirm" onclick="document.getElementById('lock-bracket-form').submit()"><i class="fa-solid fa-lock"></i> Lock</button>
+        </div>
+    </div>
+</div>
+
+<!-- Complete Tournament Modal -->
+ <div id="complete-tournament-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-flag-checkered"></i></div>
+        <div class="modal-title">Complete Tournament</div>
+        <div class="modal-text">Mark this tournament as fully completed?<br>
+            <span style="color:var(--text-muted); font-size:12px;">This cannot be undone.</span>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('complete-tournament-modal').classList.remove('active')">Cancel</button>
+            <button class="btn-modal-confirm" onclick="document.getElementById('complete-tournament-form').submit()"><i class="fa-solid fa-flag-checkered"></i> Complete</button>
+        </div>
+    </div>
+</div>
+
+<!-- Restore Tournament Modal -->
+ <div id="restore-tournament-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-rotate-left"></i></div>
+        <div class="modal-title">Restore Tournament</div>
+        <div class="modal-text">Restore this tournament back to active?</div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('restore-tournament-modal').classList.remove('active')">Cancel</button>
+            <button class="btn-modal-confirm" onclick="document.getElementById('restore-tournament-form').submit()"><i class="fa-solid fa-rotate-left"></i> Restore</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
