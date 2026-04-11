@@ -153,6 +153,19 @@ while ($rs = mysqli_fetch_assoc($reg_stats_q)) {
     if ($rs['status'] === 'completed') $reg_completed = (int)$rs['cnt'];
 }
 
+$tournaments_won_q = mysqli_query($conn, "
+    SELECT COUNT(*) as cnt
+    FROM matches m
+    JOIN tournaments t ON m.tournament_id = t.id
+    JOIN registrations r ON m.winner_id = r.id
+    WHERE r.manager_id='$user_id'
+      AND t.status='completed'
+      AND m.round_number = (
+          SELECT MAX(round_number) FROM matches WHERE tournament_id = m.tournament_id
+      )
+");
+$tournaments_won = (int)mysqli_fetch_assoc($tournaments_won_q)['cnt'];
+
 $player_options = [];
 while ($p = mysqli_fetch_assoc($active_players)) { $player_options[] = $p; }
 mysqli_data_seek($active_players, 0);
@@ -363,6 +376,13 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
                     <div class="stat-info"><h3><?php echo $total_inactive_players; ?></h3><p>Inactive Players</p></div>
                 </div>
             </div>
+                <div class="stat-card" style="--accent-color: #f1c40f;">
+                    <i class="fa-solid fa-trophy stat-icon"></i>
+                    <div class="stat-info">
+                        <h3><?php echo $tournaments_won; ?></h3>
+                        <p>Tournaments Won</p>
+                    </div>
+                </div>            
 
             <div class="charts-grid">
                 <div class="chart-panel">
