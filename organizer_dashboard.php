@@ -556,13 +556,28 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
         .wmodal-feedback  { margin-top: 12px; font-size: 13px; font-weight: 700; letter-spacing: 1px; color: var(--teal); min-height: 18px; }
         .completed-result { background: rgba(0,194,160,0.08); border: 1px solid rgba(0,194,160,0.25); border-radius: 8px; padding: 14px; }
         .completed-result p { font-family: 'Rajdhani', sans-serif; font-size: 17px; color: var(--green); font-weight: 700; letter-spacing: 1px; }
+    
+    /* Modal Styles */
+        .modal-overlay { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }
+        .modal-box { background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 14px; padding: 40px 36px; width: 360px; max-width: 90vw; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
+        .modal-icon { width: 64px; height: 64px; border-radius: 50%; background: rgba(0,194,203,0.1); border: 1px solid rgba(0,194,203,0.25); display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--teal); margin: 0 auto 20px; }
+        .modal-title { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+        .modal-text { color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin-bottom: 28px; }
+        .modal-actions { display: flex; gap: 12px; }
+        .btn-modal-cancel { flex: 1; padding: 12px; border: 1px solid var(--border-accent); border-radius: 6px; background: transparent; color: var(--text-secondary); font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+        .btn-modal-confirm { flex: 1; padding: 12px; border: none; border-radius: 6px; background: var(--teal); color: #000; font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    
     </style>
 </head>
 <body>
 
 <aside class="sidebar">
     <div class="sidebar-header">
-        <div class="brand-title">DIFF<span>CHECK</span></div>
+        <a href="organizer_dashboard.php" style="display:block; text-align:center; margin-bottom:10px;">
+            <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" style="width:130px; object-fit:contain;">
+        </a>
         <div class="brand-subtitle">Tournament System</div>
         <div class="role-badge"><i class="fa-solid fa-sitemap"></i> ORGANIZER</div>
     </div>
@@ -578,7 +593,7 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
         <a href="tournaments.php" class="nav-item"><i class="fa-solid fa-trophy"></i> Browse Events</a>
 
         <div class="nav-category">System</div>
-        <a href="logout.php" class="nav-item" style="color:var(--teal);"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+        <a onclick="document.getElementById('signout-modal').classList.add('active')" class="nav-item" style="color:var(--teal); cursor:pointer;"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
     </nav>
 
     <div class="sidebar-footer" onclick="switchTab('tab-profile', this)">
@@ -1369,5 +1384,39 @@ window.addEventListener('resize', () => {
     if (activeTid && ALL_BRACKETS[activeTid]) drawBracketConnectors(ALL_BRACKETS[activeTid]);
 });
 </script>
+
+<div id="signout-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+        <div class="modal-title">Sign Out</div>
+        <div class="modal-text">
+            Are you sure you want to sign out?<br>
+            <span style="color: var(--text-muted); font-size: 12px;">Your session will be ended and you'll be redirected to the homepage.</span>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('signout-modal').classList.remove('active')">Cancel</button>
+            <a href="logout.php" class="btn-modal-confirm"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const alert = document.querySelector('.alert');
+    if (alert) {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 500);
+        }, 3000);
+    }
+    if (document.querySelector('.alert-success')) {
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    }
+});
+</script>
+
 </body>
 </html>

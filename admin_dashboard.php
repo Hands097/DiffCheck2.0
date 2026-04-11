@@ -242,7 +242,9 @@ $avatar_initials = strtoupper(substr($admin_data['first_name'], 0, 1) . substr($
 
 <aside class="sidebar">
     <div class="sidebar-header">
-        <div class="brand-title">DIFF<span>CHECK</span></div>
+        <a href="admin_dashboard.php" style="display:block; text-align:center; margin-bottom:10px;">
+            <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" style="width:130px; object-fit:contain;">
+        </a>
         <div class="brand-subtitle">System Administration</div>
         <div class="role-badge"><i class="fa-solid fa-shield-halved"></i> SUPER ADMIN</div>
     </div>
@@ -523,6 +525,23 @@ $avatar_initials = strtoupper(substr($admin_data['first_name'], 0, 1) . substr($
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const alert = document.querySelector('.alert');
+    if (alert) {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 500);
+        }, 3000);
+    }
+    if (document.querySelector('.alert-success')) {
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    }
+});
+</script>
+
 
 </body>
 </html>

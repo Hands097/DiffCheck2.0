@@ -700,7 +700,7 @@ $result = mysqli_query($conn, $sql);
                     </a>
                     <div class="dropdown-divider"></div>
                     <a onclick="document.getElementById('signout-modal').classList.add('active')" class="dropdown-item logout" style="cursor:pointer;">
-                        <span class="di-icon">⏻</span> Sign Out
+                        <span class="di-icon"><i class="fa-solid fa-right-from-bracket"></i></span> Sign Out
                     </a>
                 </div>
             </div>
@@ -742,7 +742,7 @@ $result = mysqli_query($conn, $sql);
                     <div class="games-dropdown" id="gamesDropdown">
                         <div class="games-trigger" id="gamesTrigger">
                             <span id="gamesLabel">All Games</span>
-                            <span class="games-arrow">▾</span>
+                            <span class="games-arrow"><i class="fa-solid fa-chevron-down"></i></span>
                         </div>
                         <div class="games-menu" id="gamesMenu">
                             <?php
@@ -848,9 +848,9 @@ $result = mysqli_query($conn, $sql);
                     <form action="view_tournament.php" method="GET">
                         <input type="hidden" name="id" value="<?php echo $t['id']; ?>">
                         <?php if ($t['status'] === 'pending'): ?>
-                            <button type="submit" class="btn-view register">✚ View &amp; Register</button>
+                            <button type="submit" class="btn-view register"><i class="fa-solid fa-plus"></i> View &amp; Register</button>
                         <?php else: ?>
-                            <button type="submit" class="btn-view">◈ View Bracket</button>
+                            <button type="submit" class="btn-view"><i class="fa-solid fa-diagram-project"></i> View Bracket</button>
                         <?php endif; ?>
                     </form>
                 </div>

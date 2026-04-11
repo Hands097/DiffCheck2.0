@@ -454,7 +454,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
         <?php if ($tournament['status'] === 'completed' && $champion_name): ?>
             <div class="champion-banner">
-                <h3>🏆 Tournament Champion 🏆</h3>
+                <h3><i class="fa-solid fa-trophy"></i> Tournament Champion <i class="fa-solid fa-trophy"></i></h3>
                 <h1><?php echo htmlspecialchars($champion_name); ?></h1>
             </div>
         <?php endif; ?>
@@ -543,7 +543,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                             <div class="matches-col" id="matches-champ" style="justify-content:center;align-items:center;">
                                 <div class="match-slot" id="slot-champ">
                                     <div class="champion-card">
-                                        <div class="trophy">🏆</div>
+                                        <div class=\"trophy\"><i class=\"fa-solid fa-trophy\"></i></div>
                                         <div class="champ-name">${escHtml(champion)}</div>
                                         <div class="champ-label">Winner</div>
                                     </div>
@@ -673,7 +673,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                 const winnerEl = document.getElementById('modalWinner');
                 if (match.status === 'completed' && match.winner) {
                     const winnerName = match.winner === 'team1' ? match.team1 : match.team2;
-                    winnerEl.innerHTML = `🏆 Winner: <span style="color:#fff;">${escHtml(winnerName)}</span>`;
+                    winnerEl.innerHTML = `<i class="fa-solid fa-trophy"></i> Winner: <span style="color:#fff;">${escHtml(winnerName)}</span>`;
                 } else {
                     winnerEl.innerHTML = '';
                 }

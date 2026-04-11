@@ -51,7 +51,7 @@ if (isset($_POST['add_player'])) {
         $_SESSION['system_message'] = "Player $ign added to roster!";
         $_SESSION['msg_type'] = "success";
     }
-    header("Location: manager_dashboard.php");
+    header("Location: manager_dashboard.php?tab=tab-players");
     exit();
 }
 
@@ -298,7 +298,9 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
 
 <aside class="sidebar">
     <div class="sidebar-header">
-        <div class="brand-title">DIFF<span>CHECK</span></div>
+        <a href="manager_dashboard.php" style="display:block; text-align:center; margin-bottom:10px;">
+            <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" style="width:130px; object-fit:contain;">
+        </a>
         <div class="brand-subtitle">Tournament System</div>
         <div class="role-badge"><i class="fa-solid fa-clipboard-user"></i> MANAGER</div>
     </div>
@@ -461,8 +463,7 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
                                                     <input type='hidden' name='item_id' value='<?php echo $sq['id']; ?>'>
                                                     <input type='hidden' name='type' value='squad'>
                                                     <input type='hidden' name='new_status' value='inactive'>
-                                                    <button type='submit' name='change_status' class="btn-action btn-danger"><i class="fa-solid fa-ban"></i> Block</button>
-                                                </form>
+                                                    <button type='submit' name='change_status' class="btn-action btn-danger"><i class="fa-solid fa-box-archive"></i> Archive</button>
                                             </div>
                                         </td>
                                     </tr>
@@ -804,7 +805,16 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
         roleDropdown.selectedIndex = 0;
     }
 
-    window.onload = function() { filterPlayersByGame(); filterRolesForAddPlayer(); };
+    window.onload = function() {
+    filterPlayersByGame();
+    filterRolesForAddPlayer();
+    const urlParams = new URLSearchParams(window.location.search);
+    const tabParam = urlParams.get('tab');
+    if (tabParam && document.getElementById(tabParam)) {
+        const matchingNav = document.querySelector(`[onclick*="'${tabParam}'"]`);
+        switchTab(tabParam, matchingNav);
+    }
+};
 </script>
 
 <div id="signout-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
@@ -825,6 +835,22 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const alert = document.querySelector('.alert');
+    if (alert) {
+        setTimeout(() => {
+            alert.style.transition = 'opacity 0.5s';
+            alert.style.opacity = '0';
+            setTimeout(() => alert.remove(), 500);
+        }, 3000);
+    }
+    if (document.querySelector('.alert-success')) {
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    }
+});
+</script>
 
 </body>
 </html>
