@@ -5,9 +5,12 @@ include('db.php');
 $error_msg = "";
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = mysqli_real_escape_string($conn, $_POST['username']);
-    $email = mysqli_real_escape_string($conn, $_POST['email']);
-    $password = $_POST['password'];
+    $first_name = trim(mysqli_real_escape_string($conn, $_POST['first_name']));
+    $last_name  = trim(mysqli_real_escape_string($conn, $_POST['last_name']));
+    $username   = $first_name . ' ' . $last_name;
+    $email      = mysqli_real_escape_string($conn, $_POST['email']);
+    $password   = $_POST['password'];
+    $confirm_password = $_POST['confirm_password'];
     
     // Capture the role from the form
     $role = mysqli_real_escape_string($conn, $_POST['role']); 
@@ -18,15 +21,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     }
 
     // PHP Backend Validation
-    if (strlen($username) < 4 || strlen($username) > 20) {
-        $error_msg = "Username must be between 4 and 20 characters.";
+    if (empty($first_name) || empty($last_name)) {
+        $error_msg = "First name and last name are required.";
+    } elseif (strlen($first_name) > 30 || strlen($last_name) > 30) {
+        $error_msg = "Names must not exceed 30 characters each.";
     } elseif (strlen($password) < 6 || strlen($password) > 15) {
         $error_msg = "Password must be between 6 and 15 characters.";
+    } elseif ($password !== $confirm_password) {
+        $error_msg = "Passwords do not match.";
     } else {
         // Check if email or username already exists
-        $check = mysqli_query($conn, "SELECT * FROM users WHERE email='$email' OR username='$username'");
+        $check = mysqli_query($conn, "SELECT * FROM users WHERE email='$email'");
         if (mysqli_num_rows($check) > 0) {
-            $error_msg = "An account with that email or username already exists.";
+            $error_msg = "An account with that email already exists.";
         } else {
             // NOTE: If you are using plain text passwords, keep it as $password. 
             // If you want it hashed, use password_hash($password, PASSWORD_DEFAULT)
@@ -43,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 if ($role === 'organizer') {
                     header("Location: organizer_dashboard.php");
                 } else {
-                    header("Location: index.php");
+                    header("Location: manager_dashboard.php");
                 }
                 exit();
             } else {
@@ -152,8 +159,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 <form method="POST" action="">
                     <div class="input-group">
-                        <label>Username <span>*</span></label>
-                        <input type="text" name="username" minlength="4" maxlength="20" required>
+                        <label>First Name <span>*</span></label>
+                        <input type="text" name="first_name" maxlength="30" required>
+                    </div>
+
+                    <div class="input-group">
+                        <label>Last Name <span>*</span></label>
+                        <input type="text" name="last_name" maxlength="30" required>
                     </div>
 
                     <div class="input-group">
@@ -183,6 +195,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
 
                     <div class="input-group">
+                        <label>Confirm Password <span>*</span></label>
+                        <div style="position: relative; display: flex; align-items: center;">
+                            <input type="password" id="confirmPasswordInput" name="confirm_password" minlength="6" maxlength="15" required>
+                            <button type="button" onclick="toggleConfirmPassword()" title="Show/hide password"
+                            style="position: absolute; right: 10px; background: none; border: none; cursor: pointer; padding: 4px; color: #888;">
+                            <svg id="eyeIconConfirm" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                            </svg>
+                            <svg id="eyeOffIconConfirm" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+                                fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                                style="display:none;">
+                                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                                <line x1="1" y1="1" x2="23" y2="23"/>
+                            </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="input-group">
                         <label>I want to be a... <span>*</span></label>
                         <select name="role" required>
                             <option value="manager">Squad Manager (Join Tournaments)</option>
@@ -202,6 +235,15 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const input = document.getElementById('passwordInput');
             const eyeIcon = document.getElementById('eyeIcon');
             const eyeOffIcon = document.getElementById('eyeOffIcon');
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            eyeIcon.style.display = isPassword ? 'none' : 'block';
+            eyeOffIcon.style.display = isPassword ? 'block' : 'none';
+        }
+        function toggleConfirmPassword() {
+            const input = document.getElementById('confirmPasswordInput');
+            const eyeIcon = document.getElementById('eyeIconConfirm');
+            const eyeOffIcon = document.getElementById('eyeOffIconConfirm');
             const isPassword = input.type === 'password';
             input.type = isPassword ? 'text' : 'password';
             eyeIcon.style.display = isPassword ? 'none' : 'block';

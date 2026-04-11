@@ -658,10 +658,11 @@ $result = mysqli_query($conn, $sql);
 <div class="topbar-left">
     <a href="
         <?php
-            if (strtolower($_SESSION['role']) === 'admin') echo 'admin_dashboard.php';
-            elseif (strtolower($_SESSION['role']) === 'manager') echo 'manager_dashboard.php';
-            elseif (strtolower($_SESSION['role']) === 'organizer') echo 'organizer_dashboard.php';
-            else echo 'index.php';
+        $r = strtolower($_SESSION['role'] ?? '');
+        if ($r === 'admin') echo 'admin_dashboard.php';
+        elseif ($r === 'manager') echo 'manager_dashboard.php';
+        elseif ($r === 'organizer') echo 'organizer_dashboard.php';
+        else echo 'index.php';
         ?>
     ">
         <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" class="logo-image">
@@ -669,7 +670,6 @@ $result = mysqli_query($conn, $sql);
 </div>
 
     <div class="topbar-right">
-        <a href="index.php" class="topbar-back">← Back to Home</a>
 
         <?php if (isset($_SESSION['username'])): ?>
         <div class="user-menu" id="userMenu">
@@ -696,7 +696,7 @@ $result = mysqli_query($conn, $sql);
                         if ($role == 'organizer') $dash_link = 'organizer_dashboard.php';
                     ?>
                     <a href="<?php echo $dash_link; ?>" class="dropdown-item">
-                        <span class="di-icon">📊</span> Dashboard
+                        <span class="di-icon"><i class="fa-solid fa-chart-line"></i></span> Dashboard
                     </a>
                     <div class="dropdown-divider"></div>
                     <a onclick="document.getElementById('signout-modal').classList.add('active')" class="dropdown-item logout" style="cursor:pointer;">
@@ -723,7 +723,7 @@ $result = mysqli_query($conn, $sql);
 
     <div class="filter-panel">
         <div class="filter-header">
-            <span class="filter-header-icon">⚙</span>
+            <span class="filter-header-icon"><i class="fa-solid fa-sliders"></i></span>
             <span class="filter-header-text">Filters</span>
         </div>
         <form method="GET">
@@ -858,7 +858,7 @@ $result = mysqli_query($conn, $sql);
             <?php endwhile; ?>
         <?php else: ?>
             <div class="empty-state">
-                <div class="icon">🏆</div>
+                <div class="icon"><i class="fa-solid fa-trophy"></i></div>
                 <p>No tournaments found matching those filters.</p>
             </div>
         <?php endif; ?>

@@ -1,5 +1,11 @@
 <?php
 session_start();
+if (isset($_SESSION['user_id'])) {
+    $role = $_SESSION['role'] ?? 'manager';
+    if ($role === 'organizer') { header('Location: organizer_dashboard.php'); exit(); }
+    elseif ($role === 'admin') { header('Location: admin_dashboard.php'); exit(); }
+    else { header('Location: manager_dashboard.php'); exit(); }
+}
 include('db.php');
 
 $newest_query = mysqli_query($conn, "SELECT * FROM tournaments WHERE is_deleted=0 ORDER BY created_at DESC LIMIT 5");
@@ -502,7 +508,7 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
                     </div>
                     <div class="dropdown-items">
                         <a href="<?php echo $_SESSION['role'] === 'manager' ? 'manager_dashboard.php' : 'organizer_dashboard.php'; ?>" class="dropdown-item">
-                            <span class="di-icon">📊</span> Dashboard
+                        <span class="di-icon"><i class="fa-solid fa-chart-line"></i></span> Dashboard
                         </a>
                         <div class="dropdown-divider"></div>
                         <a onclick="document.getElementById('signout-modal').classList.add('active')" class="dropdown-item logout" style="cursor:pointer;">
@@ -516,7 +522,7 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
 </header>
 
 <div class="hero">
-    <div class="hero-eyebrow">🎮 Esports Tournament Platform</div>
+    <div class="hero-eyebrow"><i class="fa-solid fa-gamepad"></i> Esports Tournament Platform</div>
     <h1>Find & Join the Best<br><span>Esports Tournaments</span></h1>
     <p>Compete against the best, track your progress, and climb the ranks across Mobile Legends, Valorant, Wild Rift, and more.</p>
     <div class="hero-btns">
@@ -532,7 +538,7 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
     <!-- ── NEWEST TOURNAMENTS ── -->
     <div class="section-head">
         <div class="section-head-left">
-            <div class="section-icon">🆕</div>
+            <div class="section-icon"><i class="fa-solid fa-star-of-life"></i></div>
             <div class="section-title">Newest <span>Tournaments</span></div>
         </div>
         <div style="display:flex;align-items:center;gap:16px;">
@@ -602,7 +608,7 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
     </div>
     <?php else: ?>
     <div class="empty-carousel" style="margin-bottom:48px;">
-        <div class="icon">🏆</div>
+        <div class="icon"><i class="fa-solid fa-trophy"></i></div>
         <p>No tournaments available yet.</p>
     </div>
     <?php endif; ?>
@@ -612,7 +618,7 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
     <!-- ── HOTTEST ONGOING ── -->
     <div class="section-head">
         <div class="section-head-left">
-            <div class="section-icon">🔥</div>
+            <div class="section-icon"><i class="fa-solid fa-fire"></i></div>
             <div class="section-title">Hottest <span>Ongoing</span></div>
         </div>
         <div style="display:flex;align-items:center;gap:16px;">
@@ -669,7 +675,7 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
     </div>
     <?php else: ?>
     <div class="empty-carousel" style="margin-bottom:48px;">
-        <div class="icon">🔥</div>
+        <div class="icon"><i class="fa-solid fa-fire"></i></div>
         <p>No active tournaments right now.</p>
     </div>
     <?php endif; ?>
