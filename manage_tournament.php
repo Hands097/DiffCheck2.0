@@ -24,8 +24,8 @@ $tournament = mysqli_fetch_assoc($check_query);
 
 // --- LOGIC: Tournament Actions ---
 if (isset($_POST['edit_tournament'])) {
-    $new_name = $_POST['tourna_name'];
-    $new_game = $_POST['game'];
+    $new_name = mysqli_real_escape_string($conn, $_POST['tourna_name']);
+    $new_game = mysqli_real_escape_string($conn, $_POST['game']);
     $new_max = (int)$_POST['max_teams'];
     mysqli_query($conn, "UPDATE tournaments SET name='$new_name', game='$new_game', max_teams='$new_max' WHERE id='$tournament_id'");
     $_SESSION['system_message'] = "Tournament details updated!";
@@ -63,7 +63,7 @@ if (isset($_POST['finish_tournament'])) {
 
 if (isset($_POST['action_squad'])) {
     $reg_id = (int)$_POST['registration_id'];
-    $new_status = $_POST['action_type']; 
+    $new_status = mysqli_real_escape_string($conn, $_POST['action_type']);
     mysqli_query($conn, "UPDATE registrations SET status='$new_status' WHERE id='$reg_id' AND tournament_id='$tournament_id'");
     header("Location: manage_tournament.php?id=$tournament_id");
     exit();
