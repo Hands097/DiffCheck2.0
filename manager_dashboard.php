@@ -11,17 +11,19 @@ $user_id = $_SESSION['user_id'];
 
 // --- LOGIC: Update Profile ---
 if (isset($_POST['update_profile'])) {
-    $new_username = mysqli_real_escape_string($conn, $_POST['new_username']);
-    $new_password = $_POST['new_password'];
+    $new_first_name = mysqli_real_escape_string($conn, $_POST['new_first_name']);
+    $new_last_name  = mysqli_real_escape_string($conn, $_POST['new_last_name']);
+    $new_password   = $_POST['new_password'];
 
     if (!empty($new_password)) {
         $hashed_password = password_hash($new_password, PASSWORD_DEFAULT);
-        $update_sql = "UPDATE users SET username='$new_username', password='$hashed_password' WHERE id='$user_id'";
+        $update_sql = "UPDATE users SET first_name='$new_first_name', last_name='$new_last_name', password='$hashed_password' WHERE id='$user_id'";
     } else {
-        $update_sql = "UPDATE users SET username='$new_username' WHERE id='$user_id'";
+        $update_sql = "UPDATE users SET first_name='$new_first_name', last_name='$new_last_name' WHERE id='$user_id'";
     }
     mysqli_query($conn, $update_sql);
-    $_SESSION['username'] = $new_username;
+    $_SESSION['first_name'] = $new_first_name;
+    $_SESSION['last_name']  = $new_last_name;
     $_SESSION['system_message'] = "Profile updated successfully!";
     $_SESSION['msg_type'] = "success";
     header("Location: manager_dashboard.php");
@@ -53,7 +55,7 @@ if (isset($_POST['add_player'])) {
     exit();
 }
 
-// --- LOGIC: Change Status (Archive/Restore) ---
+// --- LOGIC: Change Status ---
 if (isset($_POST['change_status'])) {
     $item_id    = (int)$_POST['item_id'];
     $type       = $_POST['type'];
@@ -93,7 +95,7 @@ if (isset($_POST['create_squad'])) {
     exit();
 }
 
-// --- LOGIC: Cancel Tournament Registration ---
+// --- LOGIC: Cancel Registration ---
 if (isset($_POST['cancel_registration'])) {
     $reg_id  = (int)$_POST['reg_id'];
     $check_q = mysqli_query($conn, "SELECT t.status FROM registrations r JOIN tournaments t ON r.tournament_id = t.id WHERE r.id='$reg_id' AND r.manager_id='$user_id'");
@@ -113,11 +115,11 @@ if (isset($_POST['cancel_registration'])) {
 }
 
 // --- FETCH DATA ---
-$user_data       = mysqli_fetch_assoc(mysqli_query($conn, "SELECT username, created_at FROM users WHERE id='$user_id'"));
-$active_players  = mysqli_query($conn, "SELECT * FROM players WHERE manager_id='$user_id' AND status='active' ORDER BY game, ign");
-$inactive_players= mysqli_query($conn, "SELECT * FROM players WHERE manager_id='$user_id' AND status='inactive'");
-$active_squads   = mysqli_query($conn, "SELECT * FROM squads WHERE manager_id='$user_id' AND status='active'");
-$inactive_squads = mysqli_query($conn, "SELECT * FROM squads WHERE manager_id='$user_id' AND status='inactive'");
+$user_data        = mysqli_fetch_assoc(mysqli_query($conn, "SELECT first_name, last_name, created_at FROM users WHERE id='$user_id'"));
+$active_players   = mysqli_query($conn, "SELECT * FROM players WHERE manager_id='$user_id' AND status='active' ORDER BY game, ign");
+$inactive_players = mysqli_query($conn, "SELECT * FROM players WHERE manager_id='$user_id' AND status='inactive'");
+$active_squads    = mysqli_query($conn, "SELECT * FROM squads WHERE manager_id='$user_id' AND status='active'");
+$inactive_squads  = mysqli_query($conn, "SELECT * FROM squads WHERE manager_id='$user_id' AND status='inactive'");
 
 $registrations_query = mysqli_query($conn, "
     SELECT r.id as reg_id, r.status as reg_status,
@@ -128,26 +130,22 @@ $registrations_query = mysqli_query($conn, "
     ORDER BY r.id DESC
 ");
 
-// Stats for charts
-$total_players = mysqli_num_rows($active_players);
-$total_squads  = mysqli_num_rows($active_squads);
+$total_players          = mysqli_num_rows($active_players);
+$total_squads           = mysqli_num_rows($active_squads);
 $total_inactive_players = mysqli_num_rows($inactive_players);
 $total_inactive_squads  = mysqli_num_rows($inactive_squads);
 $total_registrations    = mysqli_num_rows($registrations_query);
 mysqli_data_seek($registrations_query, 0);
 
-// Players by game
 $players_by_game = [];
 $pbg_q = mysqli_query($conn, "SELECT game, COUNT(*) as cnt FROM players WHERE manager_id='$user_id' AND status='active' GROUP BY game");
 while ($r = mysqli_fetch_assoc($pbg_q)) { $players_by_game[] = $r; }
 
-// Players by role
 $players_by_role = [];
 $pbr_q = mysqli_query($conn, "SELECT role, COUNT(*) as cnt FROM players WHERE manager_id='$user_id' AND status='active' GROUP BY role ORDER BY cnt DESC");
 while ($r = mysqli_fetch_assoc($pbr_q)) { $players_by_role[] = $r; }
 
-// Registrations by tournament status
-$reg_pending   = 0; $reg_active = 0; $reg_completed = 0;
+$reg_pending = 0; $reg_active = 0; $reg_completed = 0;
 $reg_stats_q = mysqli_query($conn, "SELECT t.status, COUNT(*) as cnt FROM registrations r JOIN tournaments t ON r.tournament_id = t.id WHERE r.manager_id='$user_id' GROUP BY t.status");
 while ($rs = mysqli_fetch_assoc($reg_stats_q)) {
     if ($rs['status'] === 'pending')   $reg_pending   = (int)$rs['cnt'];
@@ -163,6 +161,9 @@ $js_pbg_labels = json_encode(array_column($players_by_game, 'game'));
 $js_pbg_data   = json_encode(array_column($players_by_game, 'cnt'));
 $js_pbr_labels = json_encode(array_column($players_by_role, 'role'));
 $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
+
+$display_name    = htmlspecialchars($user_data['first_name'] . ' ' . $user_data['last_name']);
+$avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($user_data['last_name'], 0, 1));
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -194,13 +195,8 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html, body { height: 100%; overflow: hidden; }
+        body { background: var(--bg-base); color: var(--text-primary); font-family: 'Exo 2', sans-serif; font-size: 14px; display: flex; }
 
-        body {
-            background: var(--bg-base); color: var(--text-primary);
-            font-family: 'Exo 2', sans-serif; font-size: 14px; display: flex;
-        }
-
-        /* ── SIDEBAR ── */
         .sidebar { width: 260px; background: var(--bg-sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; z-index: 100; }
         .sidebar-header { padding: 25px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); }
         .brand-title { font-family: 'Rajdhani', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-primary); text-transform: uppercase; line-height: 1; }
@@ -210,7 +206,6 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
 
         .sidebar-nav { flex: 1; padding: 20px 0; overflow-y: auto; }
         .nav-category { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin: 15px 20px 5px; }
-
         .nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 20px; color: var(--text-secondary); text-decoration: none; font-weight: 500; font-size: 14px; transition: 0.2s; border-left: 3px solid transparent; cursor: pointer; }
         .nav-item i { font-size: 16px; width: 20px; text-align: center; }
         .nav-item:hover { color: var(--text-primary); background: rgba(255,255,255,0.02); }
@@ -223,19 +218,15 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
         .user-name { font-weight: 600; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .user-role { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
 
-        /* ── MAIN CONTENT ── */
         .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-base) url('pic/bg.png') center center / cover fixed; }
-        .main-header { height: var(--topbar-h); padding: 0 30px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); flex-shrink: 0; background: rgba(13, 17, 23, 0.8); backdrop-filter: blur(10px); }
+        .main-header { height: var(--topbar-h); padding: 0 30px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); flex-shrink: 0; background: rgba(13,17,23,0.8); backdrop-filter: blur(10px); }
         .page-title { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; color: #fff; letter-spacing: 1px; text-transform: uppercase; }
+        .content-body { flex: 1; padding: 30px; overflow-y: auto; width: 100%; }
 
-        .content-body { flex: 1; padding: 30px; overflow-y: auto; width: 100%; }    
-
-        /* ── TABS ── */
         .tab-content { display: none; animation: fadeIn 0.3s ease; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* ── PANELS & FORMS ── */
         .panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
         .panel-head { background: rgba(0,0,0,0.2); padding: 20px; border-bottom: 1px solid var(--border); font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; color: var(--teal); letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
         .panel-body { padding: 30px; }
@@ -255,7 +246,6 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
         .alert-success { background: rgba(0,194,160,0.1); color: var(--green); border-color: rgba(0,194,160,0.3); }
         .alert-error { background: rgba(0,194,203,0.1); color: var(--teal); border-color: rgba(0,194,203,0.3); }
 
-        /* ── TABLES ── */
         .table-responsive { width: 100%; overflow-x: auto; }
         table { width: 100%; border-collapse: collapse; text-align: left; }
         th { background: rgba(0,0,0,0.2); padding: 15px 20px; font-size: 12px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid var(--border); }
@@ -274,7 +264,6 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
         .btn-danger { border-color: rgba(0,194,203,0.5); color: var(--teal); }
         .btn-danger:hover { background: var(--teal); color: #000; }
 
-        /* ── STATS & CHARTS ── */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
         .stat-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 20px; display: flex; align-items: center; gap: 16px; position: relative; overflow: hidden; }
         .stat-card::before { content: ''; position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: var(--accent-color, var(--teal)); }
@@ -290,48 +279,19 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
         .legend-item { display: inline-flex; align-items: center; gap: 5px; }
         .legend-swatch { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
 
-        /* ── GRID SPLIT ── */
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
         @media (max-width: 900px) { .grid-2 { grid-template-columns: 1fr; } .charts-grid { grid-template-columns: 1fr; } }
 
-/* modal css */
-        .modal-overlay {
-            display: none; position: fixed; inset: 0; z-index: 9999;
-            background: rgba(0,0,0,0.65); backdrop-filter: blur(4px);
-            align-items: center; justify-content: center;
-        }
+        .modal-overlay { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
         .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }
-        .modal-box {
-            background: var(--bg-card); border: 1px solid var(--border-accent);
-            border-radius: 14px; padding: 40px 36px; width: 360px; max-width: 90vw;
-            text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-            animation: slideUp 0.25s ease;
-        }
+        .modal-box { background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 14px; padding: 40px 36px; width: 360px; max-width: 90vw; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6); animation: slideUp 0.25s ease; }
         @keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
-        .modal-icon {
-            width: 64px; height: 64px; border-radius: 50%;
-            background: rgba(0,194,203,0.1); border: 1px solid rgba(0,194,203,0.25);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 26px; color: var(--teal); margin: 0 auto 20px;
-        }
-        .modal-title {
-            font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700;
-            color: #fff; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px;
-        }
+        .modal-icon { width: 64px; height: 64px; border-radius: 50%; background: rgba(0,194,203,0.1); border: 1px solid rgba(0,194,203,0.25); display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--teal); margin: 0 auto 20px; }
+        .modal-title { font-family: 'Rajdhani', sans-serif; font-size: 22px; font-weight: 700; color: #fff; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
         .modal-text { color: var(--text-secondary); font-size: 14px; line-height: 1.6; margin-bottom: 28px; }
         .modal-actions { display: flex; gap: 12px; }
-        .btn-modal-cancel {
-            flex: 1; padding: 12px; border: 1px solid var(--border-accent); border-radius: 6px;
-            background: transparent; color: var(--text-secondary); font-family: 'Rajdhani', sans-serif;
-            font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
-        }
-        .btn-modal-confirm {
-            flex: 1; padding: 12px; border: none; border-radius: 6px;
-            background: var(--teal); color: #000; font-family: 'Rajdhani', sans-serif;
-            font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-            cursor: pointer; text-decoration: none; display: inline-flex;
-            align-items: center; justify-content: center; gap: 8px;
-        }
+        .btn-modal-cancel { flex: 1; padding: 12px; border: 1px solid var(--border-accent); border-radius: 6px; background: transparent; color: var(--text-secondary); font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+        .btn-modal-confirm { flex: 1; padding: 12px; border: none; border-radius: 6px; background: var(--teal); color: #000; font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
     </style>
 </head>
 <body>
@@ -348,20 +308,20 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
         <a class="nav-item" onclick="switchTab('tab-stats', this)"><i class="fa-solid fa-chart-line"></i> My Statistics</a>
         <a class="nav-item active" onclick="switchTab('tab-squads', this)"><i class="fa-solid fa-shield"></i> My Squads</a>
         <a class="nav-item" onclick="switchTab('tab-players', this)"><i class="fa-solid fa-user-ninja"></i> Player Roster</a>
-        <a class="nav-item" onclick="switchTab('tab-registrations', this)"><i class="fa-solid fa-ticket"></i> Registered Events</a>
-        <a class="nav-item" onclick="switchTab('tab-archive', this)"><i class="fa-solid fa-box-archive"></i> Archive</a>
+        <a class="nav-item" onclick="switchTab('tab-registrations', this)"><i class="fa-solid fa-ticket"></i> Registered Tournaments</a>
+        <a class="nav-item" onclick="switchTab('tab-archive', this)"><i class="fa-solid fa-box-archive"></i> Inactive</a>
 
         <div class="nav-category">Tournaments</div>
-        <a href="tournaments.php" class="nav-item"><i class="fa-solid fa-trophy"></i> Browse Events</a>
+        <a href="tournaments.php" class="nav-item"><i class="fa-solid fa-trophy"></i> Browse Tournaments</a>
 
         <div class="nav-category">System</div>
         <a onclick="document.getElementById('signout-modal').classList.add('active')" class="nav-item" style="color: var(--teal); cursor:pointer;"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
     </nav>
 
     <div class="sidebar-footer" onclick="switchTab('tab-profile', this)">
-        <div class="user-avatar"><?php echo substr($_SESSION['username'], 0, 2); ?></div>
+        <div class="user-avatar"><?php echo $avatar_initials; ?></div>
         <div class="user-info">
-            <div class="user-name"><?php echo htmlspecialchars($_SESSION['username']); ?></div>
+            <div class="user-name"><?php echo $display_name; ?></div>
             <div class="user-role">Edit Profile</div>
         </div>
     </div>
@@ -381,7 +341,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
             <?php unset($_SESSION['system_message']); unset($_SESSION['msg_type']); ?>
         <?php endif; ?>
 
-        <!-- ======== STATISTICS TAB ======== -->
+        <!-- STATISTICS TAB -->
         <div id="tab-stats" class="tab-content">
             <div class="stats-grid">
                 <div class="stat-card" style="--accent-color: var(--teal);">
@@ -398,7 +358,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
                 </div>
                 <div class="stat-card" style="--accent-color: var(--text-secondary);">
                     <i class="fa-solid fa-box-archive stat-icon"></i>
-                    <div class="stat-info"><h3><?php echo $total_inactive_players; ?></h3><p> Benched Players</p></div>
+                    <div class="stat-info"><h3><?php echo $total_inactive_players; ?></h3><p>Inactive Players</p></div>
                 </div>
             </div>
 
@@ -426,8 +386,8 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
                     </div>
                 </div>
                 <div class="chart-panel">
-                    <div class="chart-panel-head"><i class="fa-solid fa-shield-halved"></i> Squad vs Bench</div>
-                    <div class="chart-wrap" style="height: 220px;"><canvas id="chartSquadBench"></canvas></div>
+                    <div class="chart-panel-head"><i class="fa-solid fa-shield-halved"></i> Active and Inactive</div>
+                    <div class="chart-wrap" style="height: 220px;"><canvas id="chartSquadInactive"></canvas></div>
                     <div class="chart-legend">
                         <div class="legend-item"><span class="legend-swatch" style="background:#00c2cb;"></span>Active Squads (<?php echo $total_squads; ?>)</div>
                         <div class="legend-item"><span class="legend-swatch" style="background:#3d5468;"></span>Archived (<?php echo $total_inactive_squads; ?>)</div>
@@ -436,7 +396,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
             </div>
         </div>
 
-        <!-- ======== SQUADS TAB ======== -->
+        <!-- SQUADS TAB -->
         <div id="tab-squads" class="tab-content active">
             <div class="grid-2">
                 <div class="panel">
@@ -517,7 +477,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
             </div>
         </div>
 
-        <!-- ======== PLAYERS TAB ======== -->
+        <!-- PLAYERS TAB -->
         <div id="tab-players" class="tab-content">
             <div class="grid-2">
                 <div class="panel">
@@ -581,7 +541,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
                                                     <input type='hidden' name='item_id' value='<?php echo $p['id']; ?>'>
                                                     <input type='hidden' name='type' value='player'>
                                                     <input type='hidden' name='new_status' value='inactive'>
-                                                    <button type='submit' name='change_status' class="btn-action btn-danger"><i class="fa-solid fa-ban"></i> Block</button>
+                                                    <button type='submit' name='change_status' class="btn-action btn-danger"><i class="fa-solid fa-ban"></i> Inactive</button>
                                                 </form>
                                             </div>
                                         </td>
@@ -597,16 +557,14 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
             </div>
         </div>
 
-        <!-- ======== REGISTRATIONS TAB ======== -->
+        <!-- REGISTRATIONS TAB -->
         <div id="tab-registrations" class="tab-content">
             <div class="panel" style="max-width: 100%;">
                 <div class="panel-head"><i class="fa-solid fa-ticket"></i> Tournament Registrations</div>
                 <div class="panel-body" style="padding: 0;">
                     <div class="table-responsive">
                         <table>
-                            <thead>
-                                <tr><th>Tournament Name</th><th>Game</th><th>Tournament Status</th><th>Actions</th></tr>
-                            </thead>
+                            <thead><tr><th>Tournament Name</th><th>Game</th><th>Tournament Status</th><th>Actions</th></tr></thead>
                             <tbody>
                                 <?php if (mysqli_num_rows($registrations_query) > 0): ?>
                                     <?php while ($r = mysqli_fetch_assoc($registrations_query)): ?>
@@ -644,7 +602,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
             </div>
         </div>
 
-        <!-- ======== ARCHIVE TAB ======== -->
+        <!-- ARCHIVE TAB -->
         <div id="tab-archive" class="tab-content">
             <div class="grid-2">
                 <div class="panel">
@@ -698,7 +656,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
                                     </tr>
                                     <?php endwhile; ?>
                                 <?php else: ?>
-                                    <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No benched players.</td></tr>
+                                    <tr><td colspan="3" style="text-align: center; color: var(--text-muted); padding: 20px;">No Inactive players.</td></tr>
                                 <?php endif; ?>
                             </tbody>
                         </table>
@@ -707,7 +665,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
             </div>
         </div>
 
-        <!-- ======== PROFILE TAB ======== -->
+        <!-- PROFILE TAB -->
         <div id="tab-profile" class="tab-content">
             <div class="grid-2">
                 <div class="panel">
@@ -715,8 +673,12 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
                     <div class="panel-body">
                         <form method="POST">
                             <div class="form-group">
-                                <label class="form-label">Username</label>
-                                <input type="text" name="new_username" class="form-control" value="<?php echo htmlspecialchars($user_data['username']); ?>" required>
+                                <label class="form-label">First Name</label>
+                                <input type="text" name="new_first_name" class="form-control" value="<?php echo htmlspecialchars($user_data['first_name']); ?>" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Last Name</label>
+                                <input type="text" name="new_last_name" class="form-control" value="<?php echo htmlspecialchars($user_data['last_name']); ?>" required>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">New Password (leave blank to keep current)</label>
@@ -731,7 +693,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
                     <div class="panel-head"><i class="fa-solid fa-chart-pie"></i> Manager Stats</div>
                     <div class="panel-body" style="text-align: center;">
                         <div style="font-size: 60px; color: var(--teal); margin-bottom: 10px;"><i class="fa-solid fa-crown"></i></div>
-                        <h3 style="font-family: 'Rajdhani', sans-serif; font-size: 24px; color: #fff;">Level 1 Manager</h3>
+                        <h3 style="font-family: 'Rajdhani', sans-serif; font-size: 24px; color: #fff;"><?php echo $display_name; ?></h3>
                         <p style="color: var(--text-secondary); margin-bottom: 20px;">Joined <?php echo date("F j, Y", strtotime($user_data['created_at'])); ?></p>
                         <div style="display: flex; justify-content: center; gap: 30px; margin-top: 20px;">
                             <div>
@@ -756,7 +718,6 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
     Chart.defaults.color = '#6a8fa8';
     Chart.defaults.borderColor = '#1e2a38';
 
-    // Players by Game
     new Chart(document.getElementById('chartPBG'), {
         type: 'doughnut',
         data: {
@@ -766,21 +727,15 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
         options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false } } }
     });
 
-    // Players by Role (Horizontal Bar)
     new Chart(document.getElementById('chartPBR'), {
         type: 'bar',
         data: {
             labels: <?php echo $js_pbr_labels; ?>,
             datasets: [{ data: <?php echo $js_pbr_data; ?>, backgroundColor: 'rgba(0,194,203,0.7)', borderRadius: 5, borderSkipped: false }]
         },
-        options: {
-            indexAxis: 'y', responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { x: { grid: { color: '#1e2a38' }, beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } }
-        }
+        options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: '#1e2a38' }, beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } } }
     });
 
-    // Registration Status
     new Chart(document.getElementById('chartRegStatus'), {
         type: 'doughnut',
         data: {
@@ -790,18 +745,13 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
         options: { responsive: true, maintainAspectRatio: false, cutout: '60%', plugins: { legend: { display: false } } }
     });
 
-    // Squad vs Bench (Bar)
-    new Chart(document.getElementById('chartSquadBench'), {
+    new Chart(document.getElementById('chartSquadInactive'), {
         type: 'bar',
         data: {
-            labels: ['Active Squads','Archived Squads','Active Players','Benched Players'],
+            labels: ['Active Squads','Archived Squads','Active Players','Inactive Players'],
             datasets: [{ data: [<?php echo $total_squads; ?>, <?php echo $total_inactive_squads; ?>, <?php echo $total_players; ?>, <?php echo $total_inactive_players; ?>], backgroundColor: ['rgba(0,194,203,0.75)','rgba(61,84,104,0.6)','rgba(0,194,160,0.75)','rgba(61,84,104,0.6)'], borderRadius: 5, borderSkipped: false }]
         },
-        options: {
-            responsive: true, maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 30 } }, y: { grid: { color: '#1e2a38' }, beginAtZero: true, ticks: { precision: 0 } } }
-        }
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 30 } }, y: { grid: { color: '#1e2a38' }, beginAtZero: true, ticks: { precision: 0 } } } }
     });
 
     function switchTab(tabId, element) {
@@ -809,7 +759,7 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         document.getElementById(tabId).classList.add('active');
         if (element && element.classList.contains('nav-item')) element.classList.add('active');
-        let titleMap = {
+        const titleMap = {
             'tab-stats':         'My Statistics',
             'tab-squads':        'Squad Management',
             'tab-players':       'Player Roster',
@@ -843,13 +793,13 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
     }
 
     function filterRolesForAddPlayer() {
-        var selectedGame  = document.getElementById('add_player_game').value;
-        var roleDropdown  = document.getElementById('add_player_role');
+        var selectedGame = document.getElementById('add_player_game').value;
+        var roleDropdown = document.getElementById('add_player_role');
         roleDropdown.querySelectorAll('option').forEach(function(option) {
             if (option.value === "") return;
             var gameType = option.getAttribute('data-gametype');
             if (selectedGame === 'Valorant') option.style.display = (gameType === 'valo' || gameType === 'both') ? 'block' : 'none';
-            else if (selectedGame !== "")   option.style.display = (gameType === 'moba' || gameType === 'both') ? 'block' : 'none';
+            else if (selectedGame !== "")    option.style.display = (gameType === 'moba' || gameType === 'both') ? 'block' : 'none';
         });
         roleDropdown.selectedIndex = 0;
     }
@@ -857,7 +807,6 @@ $js_pbr_data   = json_encode(array_column($players_by_role, 'cnt'));
     window.onload = function() { filterPlayersByGame(); filterRolesForAddPlayer(); };
 </script>
 
-<!-- modal page -->
 <div id="signout-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
     <div class="modal-box">
         <div class="modal-icon"><i class="fa-solid fa-right-from-bracket"></i></div>

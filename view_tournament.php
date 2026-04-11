@@ -54,13 +54,9 @@ while ($row = mysqli_fetch_assoc($matches_query)) {
     $db_bracket[$row['round_number']][$row['match_number']] = $row;
 }
 
-// ==========================================
-// FETCH PLAYERS FOR EACH SQUAD (CRASH-PROOF)
-// ==========================================
+// Fetch players for each squad
 $squad_players = [];
-
 try {
-    // We join the bridge table (squad_members) to the players table safely.
     $players_sql = "
         SELECT r.squad_name, p.in_game_name AS player_name 
         FROM registrations r
@@ -69,10 +65,7 @@ try {
         JOIN players p ON sm.player_id = p.id
         WHERE r.tournament_id='$tournament_id'
     ";
-    
-    // The '@' suppresses warnings if the 'in_game_name' column isn't exact yet
     $safe_query = @mysqli_query($conn, $players_sql);
-
     if ($safe_query) {
         while ($p = mysqli_fetch_assoc($safe_query)) {
             if (!empty($p['player_name'])) {
@@ -80,10 +73,7 @@ try {
             }
         }
     }
-} catch (Exception $e) {
-    // If the tables aren't perfectly linked, do nothing and prevent crashing!
-}
-// ==========================================
+} catch (Exception $e) {}
 
 // Dynamic bracket sizing
 $champion_name = null;
@@ -155,6 +145,8 @@ for ($r = 1; $r <= $total_rounds; $r++) {
             --text-muted:    #3d5468;
             --red:           #e05555;
             --green:         #00c2a0;
+            --gold:          #f5c842;
+            --gold-glow:     rgba(245,200,66,0.20);
             --status-open:   #00c2a0;
             --status-active: #4fa3e0;
             --status-done:   #5a6a78;
@@ -173,70 +165,207 @@ for ($r = 1; $r <= $total_rounds; $r++) {
             flex-direction: column;
         }
 
+        /* ── TOPBAR ── */
         .topbar {
-            background: var(--bg-panel); border-bottom: 1px solid var(--border);
-            padding: 0 32px; height: var(--topbar-h); display: flex; align-items: center;
-            justify-content: space-between; flex-shrink: 0; z-index: 100;
+            background: var(--bg-panel);
+            border-bottom: 1px solid var(--border);
+            padding: 0 32px;
+            height: var(--topbar-h);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            z-index: 100;
         }
         .topbar-left { display: flex; align-items: center; gap: 12px; }
-        .logo-box { width: 38px; height: 38px; background: var(--teal); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-size: 10px; font-weight: 700; color: #000; }
-        .topbar-title { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; letter-spacing: 1.5px; color: var(--text-primary); text-transform: uppercase; }
+        .logo-box {
+            width: 38px; height: 38px; background: var(--teal); border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Rajdhani', sans-serif; font-size: 10px; font-weight: 700; color: #000;
+        }
+        .topbar-title {
+            font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700;
+            letter-spacing: 1.5px; color: var(--text-primary); text-transform: uppercase;
+        }
         .topbar-title span { color: var(--teal); }
-        .btn-back { color: var(--text-secondary); text-decoration: none; font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: color .15s; }
+        .btn-back {
+            color: var(--text-secondary); text-decoration: none; font-size: 13px;
+            font-weight: 600; display: flex; align-items: center; gap: 6px; transition: color .15s;
+        }
         .btn-back:hover { color: var(--text-primary); }
 
-        .page { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 28px 32px 24px; overflow: hidden; }
+        /* ── PAGE LAYOUT ── */
+        .page {
+            flex: 1; min-height: 0; display: flex; flex-direction: column;
+            padding: 28px 32px 24px; overflow: hidden;
+        }
 
-        .page-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 16px; flex-shrink: 0; }
-        .page-title h1 { font-family: 'Rajdhani', sans-serif; font-size: 30px; font-weight: 700; color: var(--text-primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; }
-        .page-meta { color: var(--text-secondary); font-size: 14px; }
+        .page-header {
+            display: flex; align-items: flex-start; justify-content: space-between;
+            flex-wrap: wrap; gap: 16px; margin-bottom: 18px;
+            border-bottom: 1px solid var(--border); padding-bottom: 16px; flex-shrink: 0;
+        }
+        .page-title h1 {
+            font-family: 'Rajdhani', sans-serif; font-size: 30px; font-weight: 700;
+            color: var(--text-primary); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;
+        }
+        .page-meta { color: var(--text-secondary); font-size: 14px; margin-bottom: 12px; }
         .page-meta strong { color: var(--text-primary); }
 
-        .status-chip { font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 6px 16px; border-radius: 20px; }
+        .tournament-desc {
+            font-size: 14px; color: var(--text-secondary); line-height: 1.6;
+            max-width: 800px; background: rgba(0,0,0,0.2); padding: 12px 16px;
+            border-radius: 6px; border-left: 3px solid var(--teal);
+        }
+
+        .status-chip {
+            font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+            padding: 6px 16px; border-radius: 20px; margin-top: 5px;
+        }
         .chip-pending   { background: rgba(0,194,160,0.12);  color: var(--status-open);   border: 1px solid rgba(0,194,160,0.3); }
         .chip-active    { background: rgba(79,163,224,0.12); color: var(--status-active); border: 1px solid rgba(79,163,224,0.3); }
         .chip-completed { background: rgba(90,106,120,0.12); color: var(--status-done);   border: 1px solid rgba(90,106,120,0.3); }
 
-        .alert { padding: 12px 18px; border-radius: 6px; margin-bottom: 16px; font-weight: 500; font-size: 14px; border: 1px solid transparent; flex-shrink: 0; }
+        /* ── ALERTS ── */
+        .alert {
+            padding: 12px 18px; border-radius: 6px; margin-bottom: 16px;
+            font-weight: 500; font-size: 14px; border: 1px solid transparent; flex-shrink: 0;
+        }
         .alert-success { background: rgba(0,194,160,0.1); color: var(--green); border-color: rgba(0,194,160,0.3); }
         .alert-error   { background: rgba(224,85,85,0.1); color: var(--red);   border-color: rgba(224,85,85,0.3); }
 
-        .champion-banner { background: linear-gradient(135deg, rgba(0,194,203,0.1), rgba(0,194,203,0.02)); border: 1px solid var(--teal); color: var(--text-primary); padding: 20px; text-align: center; border-radius: 12px; margin-bottom: 16px; box-shadow: 0 4px 20px var(--teal-glow); flex-shrink: 0; }
-        .champion-banner h3 { font-family: 'Rajdhani', sans-serif; font-size: 13px; color: var(--teal); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
-        .champion-banner h1 { font-family: 'Rajdhani', sans-serif; font-size: 36px; font-weight: 700; letter-spacing: 1px; color: #fff; }
+        /* ── CHAMPION BANNER (top, tournament completed) ── */
+        .champion-banner {
+            background: linear-gradient(135deg, rgba(245,200,66,0.08), rgba(245,200,66,0.02));
+            border: 1px solid var(--gold); color: var(--text-primary); padding: 20px;
+            text-align: center; border-radius: 12px; margin-bottom: 16px;
+            box-shadow: 0 4px 24px var(--gold-glow); flex-shrink: 0;
+        }
+        .champion-banner h3 {
+            font-family: 'Rajdhani', sans-serif; font-size: 13px; color: var(--gold);
+            letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px;
+        }
+        .champion-banner h1 {
+            font-family: 'Rajdhani', sans-serif; font-size: 36px; font-weight: 700;
+            letter-spacing: 1px; color: #fff;
+        }
 
-        .bracket-wrapper { flex: 1; min-height: 0; background: var(--bg-panel); border: 1px solid var(--border); border-radius: 12px; padding: 28px; overflow: auto; display: flex; align-items: center; justify-content: center; }
-        .bracket { display: flex; align-items: stretch; min-width: max-content; min-height: max-content; gap: 0; }
+        /* ── BRACKET WRAPPER ── */
+        .bracket-wrapper {
+            flex: 1; min-height: 0; background: var(--bg-panel);
+            border: 1px solid var(--border); border-radius: 12px;
+            padding: 28px; overflow: auto;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .bracket { display: flex; align-items: stretch; min-width: max-content; min-height: max-content; }
+
+        /* ── ROUND COLUMNS ── */
         .round-pair { display: flex; align-items: stretch; flex-shrink: 0; }
-        .round-col { display: flex; flex-direction: column; min-width: 190px; }
-        .round-header { text-align: center; font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--teal); opacity: 0.8; padding-bottom: 14px; border-bottom: 1px solid var(--border); margin-bottom: 0; }
+        .round-col  { display: flex; flex-direction: column; min-width: 190px; }
+        .round-header {
+            text-align: center; font-family: 'Rajdhani', sans-serif; font-size: 13px;
+            font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+            color: var(--teal); opacity: 0.8; padding-bottom: 14px;
+            border-bottom: 1px solid var(--border); margin-bottom: 0;
+        }
         .matches-col { display: flex; flex-direction: column; flex: 1; position: relative; }
-        .match-slot { display: flex; align-items: center; flex: 1; padding: 8px 0; }
+        .match-slot  { display: flex; align-items: center; flex: 1; padding: 8px 0; }
 
-        .matchup { width: 180px; flex-shrink: 0; border: 1px solid var(--border-accent); border-radius: 6px; overflow: hidden; background: var(--bg-card); box-shadow: 0 4px 10px rgba(0,0,0,0.25); transition: border-color .2s, transform .2s, box-shadow .2s; position: relative; z-index: 2; cursor: pointer; }
+        /* ── MATCH CARD ── */
+        .matchup {
+            width: 180px; flex-shrink: 0; border: 1px solid var(--border-accent);
+            border-radius: 6px; overflow: hidden; background: var(--bg-card);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+            transition: border-color .2s, transform .2s, box-shadow .2s;
+            position: relative; z-index: 2; cursor: pointer;
+        }
         .matchup:hover { border-color: var(--teal); transform: translateY(-2px); box-shadow: 0 6px 15px var(--teal-glow); }
 
-        .team-row { display: flex; justify-content: space-between; align-items: center; padding: 0 12px; height: 34px; font-size: 13px; font-weight: 500; color: var(--text-secondary); }
+        .team-row {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0 12px; height: 34px; font-size: 13px; font-weight: 500;
+            color: var(--text-secondary);
+        }
         .team-row + .team-row { border-top: 1px solid var(--border); }
         .team-row.winner { color: var(--text-primary); font-weight: 600; }
         .team-row.winner .score { color: var(--teal); }
         .team-row.tbd   { color: var(--text-muted); font-style: italic; }
 
         .team-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px; }
-        .score { font-family: 'Rajdhani', sans-serif; font-size: 12px; font-weight: 700; color: var(--text-muted); flex-shrink: 0; margin-left: 6px; }
+        .score {
+            font-family: 'Rajdhani', sans-serif; font-size: 12px; font-weight: 700;
+            color: var(--text-muted); flex-shrink: 0; margin-left: 6px;
+        }
 
+        /* ── SVG CONNECTORS ── */
         .connector-col { width: 28px; flex-shrink: 0; position: relative; }
         .connector-col svg { position: absolute; top: 0; left: 0; width: 100%; overflow: visible; pointer-events: none; }
 
+        /* ── CHAMPION COLUMN (end of bracket) ── */
+        .champion-col {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; min-width: 160px; flex-shrink: 0;
+            padding-left: 8px;
+        }
+        .champion-col .col-header {
+            font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700;
+            letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold);
+            opacity: 0.9; padding-bottom: 14px; border-bottom: 1px solid rgba(245,200,66,0.25);
+            margin-bottom: 0; width: 100%; text-align: center;
+        }
+        .champion-card {
+            width: 150px; background: linear-gradient(135deg, rgba(245,200,66,0.10), rgba(245,200,66,0.03));
+            border: 1.5px solid var(--gold); border-radius: 8px; padding: 16px 12px;
+            text-align: center; box-shadow: 0 4px 20px var(--gold-glow);
+            animation: champPulse 3s ease-in-out infinite;
+        }
+        @keyframes champPulse {
+            0%, 100% { box-shadow: 0 4px 20px var(--gold-glow); }
+            50%       { box-shadow: 0 4px 32px rgba(245,200,66,0.35); }
+        }
+        .champion-card .trophy { font-size: 28px; margin-bottom: 8px; }
+        .champion-card .champ-name {
+            font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700;
+            color: #fff; letter-spacing: 0.5px; white-space: nowrap;
+            overflow: hidden; text-overflow: ellipsis; max-width: 126px; margin: 0 auto;
+        }
+        .champion-card .champ-label {
+            font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+            text-transform: uppercase; color: var(--gold); opacity: 0.85; margin-top: 4px;
+        }
+
+        /* ── CONNECTOR TO CHAMPION ── */
+        .champ-connector { width: 28px; flex-shrink: 0; position: relative; }
+        .champ-connector svg { position: absolute; top: 0; left: 0; width: 100%; overflow: visible; pointer-events: none; }
+
+        /* ── REGISTRATION PANEL ── */
         .panel { background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; max-width: 600px; margin: 0 auto; }
-        .panel-head { background: var(--bg-panel); padding: 16px 24px; border-bottom: 1px solid var(--border); font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: 1px; text-transform: uppercase; text-align: center;}
+        .panel-head {
+            background: var(--bg-panel); padding: 16px 24px; border-bottom: 1px solid var(--border);
+            font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700;
+            color: var(--text-primary); letter-spacing: 1px; text-transform: uppercase; text-align: center;
+        }
         .panel-body { padding: 30px; text-align: center; }
 
-        .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; text-align: left; }
-        .form-control { background: var(--bg-panel); border: 1px solid var(--border-accent); color: var(--text-primary); font-family: 'Exo 2', sans-serif; font-size: 14px; padding: 12px 14px; border-radius: 6px; outline: none; transition: border-color .2s; width: 100%; margin-bottom: 20px; }
+        .form-label {
+            display: block; font-size: 12px; font-weight: 600; color: var(--text-muted);
+            letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; text-align: left;
+        }
+        .form-control {
+            background: var(--bg-panel); border: 1px solid var(--border-accent);
+            color: var(--text-primary); font-family: 'Exo 2', sans-serif; font-size: 14px;
+            padding: 12px 14px; border-radius: 6px; outline: none;
+            transition: border-color .2s; width: 100%; margin-bottom: 20px;
+        }
         .form-control:focus { border-color: var(--teal); }
 
-        .btn { display: inline-flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; padding: 12px 24px; border-radius: 6px; cursor: pointer; transition: all .2s; border: none; text-decoration: none; width: 100%; }
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700;
+            letter-spacing: 1px; text-transform: uppercase; padding: 12px 24px;
+            border-radius: 6px; cursor: pointer; transition: all .2s; border: none;
+            text-decoration: none; width: 100%;
+        }
         .btn-primary { background: var(--teal); color: #000; }
         .btn-primary:hover { background: var(--teal-dim); box-shadow: 0 0 10px var(--teal-glow); }
         .btn-outline { background: transparent; border: 1px solid var(--border-accent); color: var(--text-secondary); margin-top: 10px; }
@@ -244,20 +373,46 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
         .empty-state { color: var(--text-muted); margin-bottom: 20px; line-height: 1.6; }
 
-        /* ── MODAL UI ── */
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10, 13, 16, 0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; z-index: 1000; opacity: 0; pointer-events: none; transition: opacity .3s; }
+        /* ── MATCH DETAIL MODAL ── */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10, 13, 16, 0.85); backdrop-filter: blur(5px);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000; opacity: 0; pointer-events: none; transition: opacity .3s;
+        }
         .modal-overlay.active { opacity: 1; pointer-events: auto; }
-        .modal-content { background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 12px; padding: 40px; width: 550px; max-width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.8); position: relative; transform: translateY(20px); transition: transform .3s; text-align: center; }
+        .modal-content {
+            background: var(--bg-card); border: 1px solid var(--border-accent);
+            border-radius: 12px; padding: 40px; width: 550px; max-width: 90%;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8); position: relative;
+            transform: translateY(20px); transition: transform .3s; text-align: center;
+        }
         .modal-overlay.active .modal-content { transform: translateY(0); }
-        .modal-close { position: absolute; top: 15px; right: 20px; background: transparent; border: none; color: var(--text-muted); font-size: 28px; cursor: pointer; transition: color .2s; }
+        .modal-close {
+            position: absolute; top: 15px; right: 20px; background: transparent;
+            border: none; color: var(--text-muted); font-size: 28px; cursor: pointer; transition: color .2s;
+        }
         .modal-close:hover { color: var(--text-primary); }
         .vs-container { display: flex; align-items: flex-start; justify-content: space-between; margin: 30px 0; }
         .team-block { flex: 1; text-align: center; }
-        .team-block h3 { font-family: 'Rajdhani', sans-serif; font-size: 24px; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin: 0 auto; }
-        .vs-badge { font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; color: var(--teal); background: rgba(0,194,203,0.1); padding: 8px 12px; border-radius: 6px; margin: 0 15px; border: 1px solid var(--teal); margin-top: 10px; }
-        .match-status { font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px; }
+        .team-block h3 {
+            font-family: 'Rajdhani', sans-serif; font-size: 24px; color: var(--text-primary);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; margin: 0 auto;
+        }
+        .vs-badge {
+            font-family: 'Rajdhani', sans-serif; font-size: 18px; font-weight: 700; color: var(--teal);
+            background: rgba(0,194,203,0.1); padding: 8px 12px; border-radius: 6px;
+            margin: 0 15px; border: 1px solid var(--teal); margin-top: 10px;
+        }
+        .match-status {
+            font-size: 13px; font-weight: 700; letter-spacing: 2px;
+            text-transform: uppercase; color: var(--text-secondary); margin-bottom: 10px;
+        }
         .player-list { list-style: none; padding: 0; margin-top: 15px; text-align: center; }
-        .player-list li { font-size: 13px; color: var(--text-secondary); margin-bottom: 6px; font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .player-list li {
+            font-size: 13px; color: var(--text-secondary); margin-bottom: 6px;
+            font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
         .player-list li i { color: var(--teal); font-size: 10px; }
     </style>
 </head>
@@ -284,6 +439,11 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                 <strong>Game:</strong> <?php echo htmlspecialchars($tournament['game']); ?> &nbsp;|&nbsp;
                 <strong>Capacity:</strong> <?php echo $tournament['max_teams']; ?> Teams
             </div>
+            <?php if (!empty($tournament['description'])): ?>
+                <div class="tournament-desc">
+                    <?php echo nl2br(htmlspecialchars($tournament['description'])); ?>
+                </div>
+            <?php endif; ?>
         </div>
         <div class="status-chip chip-<?php echo $tournament['status']; ?>">
             ● <?php echo strtoupper($tournament['status']); ?>
@@ -294,8 +454,8 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
         <?php if ($tournament['status'] === 'completed' && $champion_name): ?>
             <div class="champion-banner">
-                <h3>Tournament Champion</h3>
-                <h1>🏆 <?php echo htmlspecialchars($champion_name); ?> 🏆</h1>
+                <h3>🏆 Tournament Champion 🏆</h3>
+                <h1><?php echo htmlspecialchars($champion_name); ?></h1>
             </div>
         <?php endif; ?>
 
@@ -315,7 +475,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                 bracket:         <?php echo json_encode($bracket_json, JSON_UNESCAPED_UNICODE); ?>
             };
 
-            const COLORS = { borderAccent:'#1b3a4b' };
+            const CONNECTOR_STROKE = '#1e2a38';
 
             function getRoundLabel(r, total) {
                 if (r === total)     return 'Grand Finals';
@@ -324,9 +484,13 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                 return 'Round ' + r;
             }
 
+            function escHtml(str) {
+                return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+            }
+
             function buildBracket() {
                 const root = document.getElementById('bracket-root');
-                const { totalRounds, normalizedTeams, bracket } = BRACKET_DATA;
+                const { totalRounds, normalizedTeams, bracket, champion } = BRACKET_DATA;
                 let html = '';
 
                 for (let r = 1; r <= totalRounds; r++) {
@@ -365,41 +529,59 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                     }
 
                     html += `</div></div>`;
-
                     if (r < totalRounds) html += `<div class="connector-col" id="conn-right-${r}"><svg id="svg-right-${r}"></svg></div>`;
-
                     html += `</div>`;
                 }
+
+                // ── Champion column ──
+                if (champion) {
+                    html += `
+                    <div class="round-pair">
+                        <div class="champ-connector" id="champ-conn-left"><svg id="svg-champ-left"></svg></div>
+                        <div class="champion-col" id="champ-col">
+                            <div class="col-header">Champion</div>
+                            <div class="matches-col" id="matches-champ" style="justify-content:center;align-items:center;">
+                                <div class="match-slot" id="slot-champ">
+                                    <div class="champion-card">
+                                        <div class="trophy">🏆</div>
+                                        <div class="champ-name">${escHtml(champion)}</div>
+                                        <div class="champ-label">Winner</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>`;
+                }
+
                 root.innerHTML = html;
             }
 
             function drawConnectors() {
-                const { totalRounds, normalizedTeams } = BRACKET_DATA;
-                const stroke = COLORS.borderAccent;
+                const { totalRounds, normalizedTeams, champion } = BRACKET_DATA;
 
+                // Standard round connectors
                 for (let r = 1; r < totalRounds; r++) {
                     const matchCount     = normalizedTeams / Math.pow(2, r);
                     const matchesCol     = document.getElementById('matches-' + r);
                     const nextMatchesCol = document.getElementById('matches-' + (r + 1));
                     const rightCol       = document.getElementById('conn-right-' + r);
-                    const leftCol        = document.getElementById('conn-left-' + (r + 1));
-                    const svgRight       = document.getElementById('svg-right-' + r);
-                    const svgLeft        = document.getElementById('svg-left-' + (r + 1));
+                    const leftCol        = document.getElementById('conn-left-'  + (r + 1));
+                    const svgRight       = document.getElementById('svg-right-'  + r);
+                    const svgLeft        = document.getElementById('svg-left-'   + (r + 1));
 
                     if (!matchesCol || !nextMatchesCol || !rightCol || !leftCol || !svgRight || !svgLeft) continue;
 
-                    const colRect = matchesCol.getBoundingClientRect();
-                    const nextColRect = nextMatchesCol.getBoundingClientRect();
-                    const rightRect = rightCol.getBoundingClientRect();
-                    const leftRect = leftCol.getBoundingClientRect();
+                    const colRect  = matchesCol.getBoundingClientRect();
+                    const nextRect = nextMatchesCol.getBoundingClientRect();
+                    const rRect    = rightCol.getBoundingClientRect();
+                    const lRect    = leftCol.getBoundingClientRect();
 
                     svgRight.setAttribute('viewBox', `0 0 28 ${colRect.height}`);
                     svgRight.style.height = colRect.height + 'px';
-                    svgLeft.setAttribute('viewBox', `0 0 28 ${nextColRect.height}`);
-                    svgLeft.style.height = nextColRect.height + 'px';
+                    svgLeft.setAttribute('viewBox',  `0 0 28 ${nextRect.height}`);
+                    svgLeft.style.height  = nextRect.height + 'px';
 
-                    let rightLines = '';
-                    let leftLines  = '';
+                    let rightLines = '', leftLines = '';
 
                     for (let m = 1; m <= matchCount; m += 2) {
                         const slotA = document.getElementById(`slot-${r}-${m}`);
@@ -408,32 +590,56 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
                         const rA = slotA.getBoundingClientRect();
                         const rB = slotB.getBoundingClientRect();
-                        const yA = (rA.top + rA.bottom) / 2 - rightRect.top;
-                        const yB = (rB.top + rB.bottom) / 2 - rightRect.top;
+                        const yA = (rA.top + rA.bottom) / 2 - rRect.top;
+                        const yB = (rB.top + rB.bottom) / 2 - rRect.top;
 
-                        rightLines += `<line x1="0" y1="${yA}"  x2="28" y2="${yA}"  stroke="${stroke}" stroke-width="1.5"/>`;
-                        rightLines += `<line x1="0" y1="${yB}"  x2="28" y2="${yB}"  stroke="${stroke}" stroke-width="1.5"/>`;
-                        rightLines += `<line x1="28" y1="${yA}" x2="28" y2="${yB}"  stroke="${stroke}" stroke-width="1.5"/>`;
+                        rightLines += `<line x1="0" y1="${yA}"  x2="28" y2="${yA}"  stroke="${CONNECTOR_STROKE}" stroke-width="1.5"/>`;
+                        rightLines += `<line x1="0" y1="${yB}"  x2="28" y2="${yB}"  stroke="${CONNECTOR_STROKE}" stroke-width="1.5"/>`;
+                        rightLines += `<line x1="28" y1="${yA}" x2="28" y2="${yB}"  stroke="${CONNECTOR_STROKE}" stroke-width="1.5"/>`;
 
                         const nextMatchIdx = Math.ceil(m / 2);
                         const nextSlot = document.getElementById(`slot-${r + 1}-${nextMatchIdx}`);
                         if (!nextSlot) continue;
                         const rN = nextSlot.getBoundingClientRect();
-                        const yN = (rN.top + rN.bottom) / 2 - leftRect.top;
-                        leftLines += `<line x1="0" y1="${yN}" x2="28" y2="${yN}" stroke="${stroke}" stroke-width="1.5"/>`;
+                        const yN = (rN.top + rN.bottom) / 2 - lRect.top;
+                        leftLines += `<line x1="0" y1="${yN}" x2="28" y2="${yN}" stroke="${CONNECTOR_STROKE}" stroke-width="1.5"/>`;
                     }
                     svgRight.innerHTML = rightLines;
                     svgLeft.innerHTML  = leftLines;
                 }
-            }
 
-            function escHtml(str) {
-                return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                // Connector from Grand Finals to Champion card
+                if (champion) {
+                    const finalSlot  = document.getElementById(`slot-${totalRounds}-1`);
+                    const champSlot  = document.getElementById('slot-champ');
+                    const champConn  = document.getElementById('champ-conn-left');
+                    const svgChamp   = document.getElementById('svg-champ-left');
+
+                    if (finalSlot && champSlot && champConn && svgChamp) {
+                        const fRect = finalSlot.getBoundingClientRect();
+                        const cRect = champSlot.getBoundingClientRect();
+                        const ccRect = champConn.getBoundingClientRect();
+                        const totalH = Math.max(fRect.bottom, cRect.bottom) - Math.min(fRect.top, cRect.top) + 20;
+
+                        svgChamp.setAttribute('viewBox', `0 0 28 ${ccRect.height}`);
+                        svgChamp.style.height = ccRect.height + 'px';
+
+                        const yF = (fRect.top + fRect.bottom) / 2 - ccRect.top;
+                        const yC = (cRect.top + cRect.bottom) / 2 - ccRect.top;
+
+                        // Gold connector line
+                        const gold = '#b8902a';
+                        svgChamp.innerHTML = `
+                            <line x1="0" y1="${yF}" x2="28" y2="${yF}" stroke="${gold}" stroke-width="1.5"/>
+                            <line x1="28" y1="${yF}" x2="28" y2="${yC}" stroke="${gold}" stroke-width="1.5"/>
+                            <line x1="28" y1="${yC}" x2="28" y2="${yC}" stroke="${gold}" stroke-width="1.5"/>`;
+                    }
+                }
             }
 
             function renderPlayers(teamName, listElementId) {
                 const listEl = document.getElementById(listElementId);
-                listEl.innerHTML = ''; 
+                listEl.innerHTML = '';
                 if (teamName && SQUAD_PLAYERS[teamName] && SQUAD_PLAYERS[teamName].length > 0) {
                     SQUAD_PLAYERS[teamName].forEach(player => {
                         listEl.innerHTML += `<li><i class="fa-solid fa-user"></i> ${escHtml(player)}</li>`;
@@ -447,16 +653,16 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                 const match = BRACKET_DATA.bracket[r][m];
                 if (!match) return;
 
-                document.getElementById('modalTeam1').textContent = match.team1 || 'TBD';
-                document.getElementById('modalTeam2').textContent = match.team2 || 'BYE / TBD';
-                document.getElementById('modalScore1').textContent = match.score1 !== null && match.score1 !== "" ? match.score1 : '-';
-                document.getElementById('modalScore2').textContent = match.score2 !== null && match.score2 !== "" ? match.score2 : '-';
+                document.getElementById('modalTeam1').textContent  = match.team1 || 'TBD';
+                document.getElementById('modalTeam2').textContent  = match.team2 || 'BYE / TBD';
+                document.getElementById('modalScore1').textContent = (match.score1 !== null && match.score1 !== '') ? match.score1 : '-';
+                document.getElementById('modalScore2').textContent = (match.score2 !== null && match.score2 !== '') ? match.score2 : '-';
 
                 renderPlayers(match.team1, 'modalPlayers1');
                 renderPlayers(match.team2, 'modalPlayers2');
 
                 const statusEl = document.getElementById('modalStatus');
-                if(match.status === 'completed') {
+                if (match.status === 'completed') {
                     statusEl.textContent = 'MATCH COMPLETED';
                     statusEl.style.color = 'var(--status-done)';
                 } else {
@@ -467,7 +673,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                 const winnerEl = document.getElementById('modalWinner');
                 if (match.status === 'completed' && match.winner) {
                     const winnerName = match.winner === 'team1' ? match.team1 : match.team2;
-                    winnerEl.innerHTML = `🏆 Winner: <span style="color: #fff;">${escHtml(winnerName)}</span>`;
+                    winnerEl.innerHTML = `🏆 Winner: <span style="color:#fff;">${escHtml(winnerName)}</span>`;
                 } else {
                     winnerEl.innerHTML = '';
                 }
@@ -476,7 +682,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
             }
 
             function closeModal(e) {
-                if(e) e.preventDefault();
+                if (e) e.preventDefault();
                 document.getElementById('matchModal').classList.remove('active');
             }
 
@@ -527,6 +733,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
 </div>
 
+<!-- Match Detail Modal -->
 <div class="modal-overlay" id="matchModal" onclick="closeModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
         <button class="modal-close" onclick="closeModal(event)">&times;</button>
@@ -534,22 +741,22 @@ for ($r = 1; $r <= $total_rounds; $r++) {
         <div class="vs-container">
             <div class="team-block">
                 <h3 id="modalTeam1">Team 1</h3>
-                <div class="score" id="modalScore1" style="font-size: 32px; margin-top: 5px; color: var(--text-primary);">0</div>
+                <div class="score" id="modalScore1" style="font-size:32px;margin-top:5px;color:var(--text-primary);">0</div>
                 <ul class="player-list" id="modalPlayers1"></ul>
             </div>
             <div class="vs-badge">VS</div>
             <div class="team-block">
                 <h3 id="modalTeam2">Team 2</h3>
-                <div class="score" id="modalScore2" style="font-size: 32px; margin-top: 5px; color: var(--text-primary);">0</div>
+                <div class="score" id="modalScore2" style="font-size:32px;margin-top:5px;color:var(--text-primary);">0</div>
                 <ul class="player-list" id="modalPlayers2"></ul>
             </div>
         </div>
-        <div id="modalWinner" style="margin-top: 25px; font-family: 'Rajdhani', sans-serif; color: var(--teal); font-weight: 700; font-size: 18px; letter-spacing: 1px;"></div>
+        <div id="modalWinner" style="margin-top:25px;font-family:'Rajdhani',sans-serif;color:var(--teal);font-weight:700;font-size:18px;letter-spacing:1px;"></div>
     </div>
 </div>
 
-</body>
-<footer style="text-align: center; padding: 24px; border-top: 1px solid #1e2a38; color: #3d5468; font-size: 13px; font-weight: 500; background: #0f1318; margin-top: auto; flex-shrink: 0;">
-    &copy; 2026 <span style="color: #00c2cb; font-weight: 700; font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;">DiffCheck</span>. All rights reserved.
+<footer style="text-align:center;padding:24px;border-top:1px solid #1e2a38;color:#3d5468;font-size:13px;font-weight:500;background:#0f1318;margin-top:auto;flex-shrink:0;">
+    &copy; 2026 <span style="color:#00c2cb;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:1px;">DiffCheck</span>. All rights reserved.
 </footer>
+</body>
 </html>

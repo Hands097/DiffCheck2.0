@@ -5,7 +5,7 @@ include('db.php');
 
 // If already logged in, safely redirect to the proper dashboard
 if (isset($_SESSION['user_id'])) {
-    $role = $_SESSION['role']; // It's already forced to lowercase now!
+    $role = $_SESSION['role']; 
     if ($role === 'admin') { header("Location: admin_dashboard.php"); exit(); }
     elseif ($role === 'organizer') { header("Location: organizer_dashboard.php"); exit(); }
     elseif ($role === 'manager') { header("Location: manager_dashboard.php"); exit(); }
@@ -18,12 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $email = mysqli_real_escape_string($conn, $_POST['email']);
     $password = $_POST['password']; 
 
-    // Basic length check to match your registration rules
     if (strlen($password) < 6 || strlen($password) > 15) {
         $error_msg = "Password must be between 6 and 15 characters.";
     } else {
-        // Look for the user by Email OR Username
-        $query = mysqli_query($conn, "SELECT * FROM users WHERE email='$email' OR username='$email'");
+        // Look for the user by Email ONLY
+        $query = mysqli_query($conn, "SELECT * FROM users WHERE email='$email'");
         
         if ($query && mysqli_num_rows($query) > 0) {
             $user = mysqli_fetch_assoc($query);
@@ -31,14 +30,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Check password (handles both plain text and hashed passwords safely)
             if ($password === $user['password'] || password_verify($password, $user['password'])) {
                 
-                // ----------------------------------------------------
-                // THE FIX: Force the role to lowercase before saving it!
-                // ----------------------------------------------------
                 $safe_role = strtolower($user['role']);
                 
                 $_SESSION['user_id'] = $user['id'];
-                $_SESSION['username'] = $user['username'];
-                $_SESSION['role'] = $safe_role; // Now it will always match 'manager'
+                // Save names so the dashboard dropdown works!
+                $_SESSION['first_name'] = $user['first_name'];
+                $_SESSION['last_name']  = $user['last_name'];
+                $_SESSION['role']       = $safe_role; 
                 
                 // Route to the correct dashboard
                 if ($safe_role === 'admin') {
@@ -62,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $error_msg = "Incorrect password. Please try again.";
             }
         } else {
-            $error_msg = "No account found with that email or username.";
+            $error_msg = "No account found with that email.";
         }
     }
 }
@@ -148,8 +146,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
                 <form method="POST" action="">
                     <div class="input-group">
-                        <label>Email or Username <span>*</span></label>
-                        <input type="text" name="email" required>
+                        <label>Email <span>*</span></label>
+                        <input type="email" name="email" required>
                     </div>
                     
                 <div class="input-group">
