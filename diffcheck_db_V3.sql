@@ -378,6 +378,10 @@ CREATE TABLE otp_verifications (
 ALTER TABLE users ADD COLUMN is_verified TINYINT(1) DEFAULT 0;
 UPDATE users SET is_verified = 1; -- marks all existing users as verified
 
+
+-- adds is_deleted column to users table to mark if the user is deleted or not, and marks all existing users as not deleted
+ALTER TABLE users ADD COLUMN is_deleted TINYINT(1) DEFAULT 0 AFTER role;
+
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
