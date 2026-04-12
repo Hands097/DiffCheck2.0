@@ -96,6 +96,68 @@ if (isset($_POST['ajax_action'])) {
         echo json_encode(['status' => 'success', 'winner_name' => $wname ? $wname['squad_name'] : '']);
         exit();
     }
+
+    // ── NEW: WARNING & DQ AJAX ACTIONS ──
+    if ($action === 'warn_team') {
+        $match_id = isset($_POST['match_id']) ? (int)$_POST['match_id'] : 0;
+        $team_id  = isset($_POST['team_id'])  ? (int)$_POST['team_id']  : 0;
+        $reason   = isset($_POST['reason'])   ? mysqli_real_escape_string($conn, trim($_POST['reason'])) : '';
+        $t_id     = isset($_POST['t_id'])     ? (int)$_POST['t_id']     : 0;
+
+        if (!$reason) { echo json_encode(['status' => 'error', 'message' => 'Reason is required.']); exit(); }
+
+        $chk = mysqli_fetch_assoc(mysqli_query($conn, "SELECT t.id FROM matches m JOIN tournaments t ON m.tournament_id=t.id WHERE m.id='$match_id' AND t.organizer_id='$user_id'"));
+        if (!$chk) { echo json_encode(['status' => 'error', 'message' => 'Unauthorized.']); exit(); }
+
+        mysqli_query($conn, "INSERT INTO team_actions (tournament_id, match_id, team_id, action_type, reason) VALUES ('$t_id', '$match_id', '$team_id', 'warning', '$reason')");
+        $team_name = mysqli_fetch_assoc(mysqli_query($conn, "SELECT squad_name FROM registrations WHERE id='$team_id'"));
+        echo json_encode(['status' => 'success', 'team_name' => $team_name ? $team_name['squad_name'] : '']);
+        exit();
+    }
+
+    if ($action === 'dq_team') {
+        $match_id    = isset($_POST['match_id'])    ? (int)$_POST['match_id']    : 0;
+        $team_id     = isset($_POST['team_id'])     ? (int)$_POST['team_id']     : 0;
+        $reason      = isset($_POST['reason'])      ? mysqli_real_escape_string($conn, trim($_POST['reason'])) : '';
+        $t_id        = isset($_POST['t_id'])        ? (int)$_POST['t_id']        : 0;
+        $opponent_id = isset($_POST['opponent_id']) ? (int)$_POST['opponent_id'] : 0;
+
+        if (!$reason)      { echo json_encode(['status' => 'error', 'message' => 'Reason is required.']); exit(); }
+        if (!$opponent_id) { echo json_encode(['status' => 'error', 'message' => 'No opponent to advance.']); exit(); }
+
+        $mq = mysqli_query($conn, "
+            SELECT m.* FROM matches m
+            JOIN tournaments t ON m.tournament_id = t.id
+            WHERE m.id='$match_id' AND t.organizer_id='$user_id'
+        ");
+        if (!$mq || mysqli_num_rows($mq) == 0) { echo json_encode(['status' => 'error', 'message' => 'Match not found.']); exit(); }
+        $match = mysqli_fetch_assoc($mq);
+
+        mysqli_query($conn, "INSERT INTO team_actions (tournament_id, match_id, team_id, action_type, reason) VALUES ('$t_id', '$match_id', '$team_id', 'disqualified', '$reason')");
+        mysqli_query($conn, "UPDATE matches SET winner_id='$opponent_id', status='completed' WHERE id='$match_id'");
+
+        $cur_round  = (int)$match['round_number'];
+        $cur_match  = (int)$match['match_number'];
+        $next_round = $cur_round + 1;
+        $next_num   = (int)ceil($cur_match / 2);
+        $slot       = ($cur_match % 2 === 1) ? 'team1_id' : 'team2_id';
+
+        $nq = mysqli_query($conn, "SELECT id FROM matches WHERE tournament_id='{$match['tournament_id']}' AND round_number='$next_round' AND match_number='$next_num'");
+        if ($nq && mysqli_num_rows($nq) > 0) {
+            $nm = mysqli_fetch_assoc($nq);
+            mysqli_query($conn, "UPDATE matches SET `$slot`='$opponent_id' WHERE id='{$nm['id']}'");
+        }
+
+        $winner_name = mysqli_fetch_assoc(mysqli_query($conn, "SELECT squad_name FROM registrations WHERE id='$opponent_id'"));
+        $dq_name     = mysqli_fetch_assoc(mysqli_query($conn, "SELECT squad_name FROM registrations WHERE id='$team_id'"));
+
+        echo json_encode([
+            'status'      => 'success',
+            'winner_name' => $winner_name ? $winner_name['squad_name'] : '',
+            'dq_name'     => $dq_name     ? $dq_name['squad_name']     : '',
+        ]);
+        exit();
+    }
 }
 
 // ── PROFILE UPDATE ─────────────────────────────────────────────────────────────
@@ -267,7 +329,7 @@ $js_monthly_data   = json_encode(array_column($monthly_t,   'count'));
 $display_name    = htmlspecialchars($user_data['first_name'] . ' ' . $user_data['last_name']);
 $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($user_data['last_name'], 0, 1));
 
-// Build bracket JSON for all active/completed tournaments
+// ── NEW: BUILD BRACKET JSON WITH SAFE LOGO FETCH ────────────────────────────────
 $all_brackets = [];
 foreach ($my_tournaments as $t) {
     if ($t['status'] !== 'active' && $t['status'] !== 'completed') continue;
@@ -299,40 +361,62 @@ foreach ($my_tournaments as $t) {
         $db_b[$row['round_number']][$row['match_number']] = $row;
     }
 
+    // SAFE LOGO FETCH
+    $logos_map = [];
+    $lq = mysqli_query($conn, "
+        SELECT r.squad_name, s.logo 
+        FROM registrations r 
+        JOIN squads s ON r.squad_name = s.name AND r.manager_id = s.manager_id 
+        WHERE r.tournament_id='$tid'
+    ");
+    if ($lq) {
+        while ($lrow = mysqli_fetch_assoc($lq)) {
+            $logos_map[$lrow['squad_name']] = !empty($lrow['logo']) ? $lrow['logo'] : 'default_logo.png';
+        }
+    }
+
     $bracket_json = [];
     for ($r = 1; $r <= $rounds; $r++) {
         $mc = (int)($norm / pow(2, $r));
         for ($m = 1; $m <= $mc; $m++) {
             $mx = isset($db_b[$r][$m]) ? $db_b[$r][$m] : null;
+            
+            $t1_name = $mx ? ($mx['team1_name'] ?? null) : null;
+            $t2_name = $mx ? ($mx['team2_name'] ?? null) : null;
+
             $bracket_json[$r][$m] = [
-                'match_id' => $mx ? (int)$mx['match_id']  : null,
-                'team1_id' => $mx ? (int)$mx['team1_id']  : null,
-                'team2_id' => $mx ? (int)$mx['team2_id']  : null,
-                'team1'    => $mx ? ($mx['team1_name']  ?? null) : null,
-                'team2'    => $mx ? ($mx['team2_name']  ?? null) : null,
-                'score1'   => $mx ? ($mx['score1']      ?? null) : null,
-                'score2'   => $mx ? ($mx['score2']      ?? null) : null,
-                'winner'   => $mx ? ($mx['winner_id'] == ($mx['team1_id'] ?? null) ? 'team1'
-                                  : ($mx['winner_id'] == ($mx['team2_id'] ?? null) ? 'team2' : null)) : null,
-                'status'   => $mx ? $mx['status'] : 'pending',
+                'match_id'   => $mx ? (int)$mx['match_id']  : null,
+                'team1_id'   => $mx ? (int)$mx['team1_id']  : null,
+                'team2_id'   => $mx ? (int)$mx['team2_id']  : null,
+                'team1'      => $t1_name,
+                'team1_logo' => ($t1_name && isset($logos_map[$t1_name])) ? $logos_map[$t1_name] : 'default_logo.png',
+                'team2'      => $t2_name,
+                'team2_logo' => ($t2_name && isset($logos_map[$t2_name])) ? $logos_map[$t2_name] : 'default_logo.png',
+                'score1'     => $mx ? ($mx['score1']      ?? null) : null,
+                'score2'     => $mx ? ($mx['score2']      ?? null) : null,
+                'winner'     => $mx ? ($mx['winner_id'] == ($mx['team1_id'] ?? null) ? 'team1'
+                                   : ($mx['winner_id'] == ($mx['team2_id'] ?? null) ? 'team2' : null)) : null,
+                'status'     => $mx ? $mx['status'] : 'pending',
             ];
         }
     }
 
-    // Resolve champion from final match
     $champion_name = null;
+    $champion_logo = 'default_logo.png';
     $final_match = isset($db_b[$rounds][1]) ? $db_b[$rounds][1] : null;
     if ($final_match && $final_match['status'] === 'completed' && !empty($final_match['winner_name'])) {
         $champion_name = $final_match['winner_name'];
+        $champion_logo = isset($logos_map[$champion_name]) ? $logos_map[$champion_name] : 'default_logo.png';
     }
 
     $all_brackets[$tid] = [
-        'name'        => $t['name'],
-        'status'      => $t['status'],
-        'totalRounds' => $rounds,
-        'normTeams'   => $norm,
-        'bracket'     => $bracket_json,
-        'champion'    => $champion_name,
+        'name'          => $t['name'],
+        'status'        => $t['status'],
+        'totalRounds'   => $rounds,
+        'normTeams'     => $norm,
+        'bracket'       => $bracket_json,
+        'champion'      => $champion_name,
+        'champion_logo' => $champion_logo,
     ];
 }
 $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
@@ -389,7 +473,7 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
 
         .sidebar-footer { padding: 20px; border-top: 1px solid rgba(255,255,255,0.05); display: flex; align-items: center; gap: 12px; cursor: pointer; transition: 0.2s; }
         .sidebar-footer:hover { background: rgba(255,255,255,0.02); }
-        .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--teal); color: #000; display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; }
+        .user-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--teal); color: #000; display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif; font-weight: 700; font-size: 16px; text-transform: uppercase; flex-shrink: 0; }
         .user-info { flex: 1; overflow: hidden; }
         .user-name { font-weight: 600; color: #fff; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .user-role { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
@@ -501,31 +585,20 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
         .b-connector { width: 26px; flex-shrink: 0; position: relative; }
         .b-connector svg { position: absolute; top: 0; left: 0; width: 100%; overflow: visible; pointer-events: none; }
 
-        /* ── CHAMPION COLUMN (organizer bracket) ── */
-        .b-champ-col {
-            display: flex; flex-direction: column; min-width: 155px;
-            align-items: center; justify-content: center;
-        }
-        .b-champ-header {
-            font-family: 'Rajdhani', sans-serif; font-size: 12px; font-weight: 700;
-            letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold);
-            opacity: 0.9; padding-bottom: 12px; border-bottom: 1px solid rgba(245,200,66,0.25);
-            margin-bottom: 10px; width: 100%; text-align: center;
-        }
+        .b-champ-col { display: flex; flex-direction: column; min-width: 155px; align-items: center; justify-content: center; }
+        .b-champ-header { font-family: 'Rajdhani', sans-serif; font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold); opacity: 0.9; padding-bottom: 12px; border-bottom: 1px solid rgba(245,200,66,0.25); margin-bottom: 10px; width: 100%; text-align: center; }
         .b-champ-matches { display: flex; flex-direction: column; justify-content: center; align-items: center; flex: 1; }
-        .b-champ-card {
-            width: 145px; background: linear-gradient(135deg, rgba(245,200,66,0.10), rgba(245,200,66,0.03));
-            border: 1.5px solid var(--gold); border-radius: 8px; padding: 14px 10px;
-            text-align: center; box-shadow: 0 4px 18px var(--gold-glow);
-            animation: bChampPulse 3s ease-in-out infinite;
-        }
-        @keyframes bChampPulse {
-            0%,100% { box-shadow: 0 4px 18px var(--gold-glow); }
-            50%      { box-shadow: 0 4px 28px rgba(245,200,66,0.35); }
-        }
+        .b-champ-card { width: 145px; background: linear-gradient(135deg, rgba(245,200,66,0.10), rgba(245,200,66,0.03)); border: 1.5px solid var(--gold); border-radius: 8px; padding: 14px 10px; text-align: center; box-shadow: 0 4px 18px var(--gold-glow); animation: bChampPulse 3s ease-in-out infinite; }
+        @keyframes bChampPulse { 0%,100% { box-shadow: 0 4px 18px var(--gold-glow); } 50%  { box-shadow: 0 4px 28px rgba(245,200,66,0.35); } }
         .b-champ-card .b-trophy    { font-size: 24px; margin-bottom: 6px; }
         .b-champ-card .b-champ-name { font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; color: #fff; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 121px; margin: 0 auto; }
         .b-champ-card .b-champ-label { font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--gold); opacity: 0.85; margin-top: 4px; }
+
+        /* ── NEW LOGO CSS FOR BRACKET & MODAL ── */
+        .b-team-identity { display: flex; align-items: center; flex: 1; min-width: 0; }
+        .bracket-logo { width: 16px; height: 16px; border-radius: 3px; object-fit: cover; margin-right: 6px; flex-shrink: 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); }
+        .champ-bracket-logo { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; margin: 0 auto 8px; display: block; border: 1px solid var(--gold); }
+        .wmodal-logo { width: 70px; height: 70px; border-radius: 8px; object-fit: cover; border: 2px solid var(--border-accent); margin-bottom: 10px; background: rgba(0,0,0,0.3); }
 
         /* ── WINNER MODAL ── */
         .wmodal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,12,16,0.88); backdrop-filter: blur(6px); display: flex; align-items: center; justify-content: center; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity .25s; }
@@ -556,9 +629,44 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
         .wmodal-feedback  { margin-top: 12px; font-size: 13px; font-weight: 700; letter-spacing: 1px; color: var(--teal); min-height: 18px; }
         .completed-result { background: rgba(0,194,160,0.08); border: 1px solid rgba(0,194,160,0.25); border-radius: 8px; padding: 14px; }
         .completed-result p { font-family: 'Rajdhani', sans-serif; font-size: 17px; color: var(--green); font-weight: 700; letter-spacing: 1px; }
-    
-    /* Modal Styles */
-        .modal-overlay { display: none; position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
+        
+        /* Warn/DQ Action Row */
+        .wmodal-action-row { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+        .btn-wmodal-warn { flex: 1; padding: 9px 10px; border-radius: 6px; border: 1px solid rgba(243,156,18,0.5); background: transparent; color: var(--orange); font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: .2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-wmodal-warn:hover { background: var(--orange); color: #000; }
+        .btn-wmodal-dq { flex: 1; padding: 9px 10px; border-radius: 6px; border: 1px solid rgba(255,71,87,0.5); background: transparent; color: var(--red); font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: .2s; display: flex; align-items: center; justify-content: center; gap: 6px; }
+        .btn-wmodal-dq:hover { background: var(--red); color: #fff; }
+
+        /* Action Log */
+        .action-log { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+        .action-log-item { display: flex; align-items: flex-start; gap: 8px; padding: 8px 12px; border-radius: 6px; font-size: 12px; line-height: 1.4; text-align: left; }
+        .action-log-item.warn { background: rgba(243,156,18,0.08); border: 1px solid rgba(243,156,18,0.25); color: var(--orange); }
+        .action-log-item.dq   { background: rgba(255,71,87,0.08);  border: 1px solid rgba(255,71,87,0.25);  color: var(--red); }
+        .action-log-item i    { margin-top: 1px; flex-shrink: 0; }
+
+        /* ── REASON MODAL (DQ / WARN) ── */
+        .reason-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(10,12,16,0.92); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 4000; opacity: 0; pointer-events: none; transition: opacity .25s; }
+        .reason-modal-overlay.open { opacity: 1; pointer-events: auto; }
+        .reason-modal { background: var(--bg-card); border-radius: 14px; padding: 34px 36px; width: 460px; max-width: 92vw; position: relative; transform: translateY(16px); transition: transform .25s; border: 1px solid var(--border-accent); }
+        .reason-modal-overlay.open .reason-modal { transform: translateY(0); }
+        .reason-modal-close { position: absolute; top: 12px; right: 16px; background: none; border: none; color: var(--text-muted); font-size: 24px; cursor: pointer; line-height: 1; }
+        .reason-modal-close:hover { color: #fff; }
+        .reason-modal-icon  { font-size: 32px; margin-bottom: 10px; text-align: center; }
+        .reason-modal-title { font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; text-align: center; margin-bottom: 6px; color: #fff; }
+        .reason-modal-sub   { font-size: 12px; color: var(--text-secondary); text-align: center; margin-bottom: 20px; line-height: 1.5; }
+        .reason-modal textarea { width: 100%; padding: 12px 14px; background: rgba(0,0,0,0.35); border: 1px solid var(--border-accent); color: var(--text-primary); font-family: 'Exo 2', sans-serif; font-size: 13px; border-radius: 6px; resize: vertical; min-height: 90px; outline: none; transition: border-color .2s; margin-bottom: 16px; }
+        .reason-modal textarea:focus { border-color: var(--teal); }
+        .reason-modal-actions { display: flex; gap: 10px; }
+        .btn-reason-cancel { flex: 1; padding: 11px; border: 1px solid var(--border-accent); border-radius: 6px; background: transparent; color: var(--text-secondary); font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
+        .btn-reason-confirm { flex: 2; padding: 11px; border: none; border-radius: 6px; font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; transition: .2s; }
+        .btn-reason-confirm.warn { background: var(--orange); color: #000; }
+        .btn-reason-confirm.warn:hover { background: #e08e0b; }
+        .btn-reason-confirm.dq   { background: var(--red); color: #fff; }
+        .btn-reason-confirm.dq:hover { background: #e03040; }
+        .reason-modal-error { font-size: 12px; color: var(--red); margin-top: -10px; margin-bottom: 10px; min-height: 16px; font-weight: 600; }
+
+        /* ── CONFIRM / GENERIC MODALS ── */
+        .modal-overlay { display: none; position: fixed; inset: 0; z-index: 3000; background: rgba(0,0,0,0.65); backdrop-filter: blur(4px); align-items: center; justify-content: center; }
         .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }
         .modal-box { background: var(--bg-card); border: 1px solid var(--border-accent); border-radius: 14px; padding: 40px 36px; width: 360px; max-width: 90vw; text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6); }
         .modal-icon { width: 64px; height: 64px; border-radius: 50%; background: rgba(0,194,203,0.1); border: 1px solid rgba(0,194,203,0.25); display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--teal); margin: 0 auto 20px; }
@@ -568,7 +676,6 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
         .btn-modal-cancel { flex: 1; padding: 12px; border: 1px solid var(--border-accent); border-radius: 6px; background: transparent; color: var(--text-secondary); font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; }
         .btn-modal-confirm { flex: 1; padding: 12px; border: none; border-radius: 6px; background: var(--teal); color: #000; font-family: 'Rajdhani', sans-serif; font-size: 15px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-    
     </style>
 </head>
 <body>
@@ -584,10 +691,10 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
 
     <nav class="sidebar-nav">
         <div class="nav-category">Event Management</div>
-        <a class="nav-item active" onclick="switchTab('tab-overview', this)"><i class="fa-solid fa-chart-line"></i> Statistics</a>
-        <a class="nav-item" onclick="switchTab('tab-create',   this)"><i class="fa-solid fa-plus-circle"></i> Create Event</a>
-        <a class="nav-item" onclick="switchTab('tab-manage',   this)"><i class="fa-solid fa-list-check"></i> Manage Registrations</a>
-        <a class="nav-item" onclick="switchTab('tab-archive',  this)"><i class="fa-solid fa-box-archive"></i> Archived Events</a>
+        <a class="nav-item active" id="nav-tab-overview" onclick="switchTab('tab-overview', this)"><i class="fa-solid fa-chart-line"></i> Statistics</a>
+        <a class="nav-item" id="nav-tab-create"   onclick="switchTab('tab-create',   this)"><i class="fa-solid fa-plus-circle"></i> Create Event</a>
+        <a class="nav-item" id="nav-tab-manage"   onclick="switchTab('tab-manage',   this)"><i class="fa-solid fa-list-check"></i> Manage Registrations</a>
+        <a class="nav-item" id="nav-tab-archive"  onclick="switchTab('tab-archive',  this)"><i class="fa-solid fa-box-archive"></i> Archived Events</a>
 
         <div class="nav-category">Public Platform</div>
         <a href="tournaments.php" class="nav-item"><i class="fa-solid fa-trophy"></i> Browse Events</a>
@@ -596,7 +703,7 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
         <a onclick="document.getElementById('signout-modal').classList.add('active')" class="nav-item" style="color:var(--teal); cursor:pointer;"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
     </nav>
 
-    <div class="sidebar-footer" onclick="switchTab('tab-profile', this)">
+    <div class="sidebar-footer" id="sidebar-footer-profile" onclick="switchTab('tab-profile', this)">
         <div class="user-avatar"><?php echo $avatar_initials; ?></div>
         <div class="user-info">
             <div class="user-name"><?php echo $display_name; ?></div>
@@ -613,13 +720,12 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
     <div class="content-body">
 
         <?php if (isset($_SESSION['system_message'])): ?>
-            <div class="alert alert-<?php echo isset($_SESSION['msg_type']) ? $_SESSION['msg_type'] : 'success'; ?>">
+            <div class="alert alert-<?php echo isset($_SESSION['msg_type']) ? htmlspecialchars($_SESSION['msg_type']) : 'success'; ?>">
                 <i class="fa-solid fa-circle-info"></i> <?php echo htmlspecialchars($_SESSION['system_message']); ?>
             </div>
             <?php unset($_SESSION['system_message']); unset($_SESSION['msg_type']); ?>
         <?php endif; ?>
 
-        <!-- ══ STATISTICS ══════════════════════════════════════════════════════ -->
         <div id="tab-overview" class="tab-content active">
             <div class="stats-grid">
                 <div class="stat-card" style="--accent-color:var(--orange);">
@@ -712,7 +818,6 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
             </div>
         </div>
 
-        <!-- ══ CREATE EVENT ════════════════════════════════════════════════════ -->
         <div id="tab-create" class="tab-content">
             <div class="panel" style="max-width:600px;margin:0 auto;">
                 <div class="panel-head"><i class="fa-solid fa-plus-circle"></i> Host a New Event</div>
@@ -751,7 +856,6 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
             </div>
         </div>
 
-        <!-- ══ MANAGE REGISTRATIONS ════════════════════════════════════════════ -->
         <div id="tab-manage" class="tab-content">
             <div class="panel">
                 <div class="panel-head"><i class="fa-solid fa-inbox"></i> Manager Applications</div>
@@ -814,11 +918,12 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
                                         <div class="action-cell">
                                             <?php if ($t['status'] === 'pending'): ?>
                                                 <?php if ($reg_count >= 3): ?>
-                                                    <form method="POST" style="display:inline;" id="lock-bracket-form">
+                                                    <form method="POST" style="display:inline;" id="lock-bracket-form-<?php echo $t['id']; ?>">
                                                         <input type="hidden" name="tournament_id" value="<?php echo $t['id']; ?>">
-                                                            <button type="button" class="btn-action" onclick="document.getElementById('lock-bracket-modal').classList.add('active')">
-                                                                <i class="fa-solid fa-lock"></i> Lock Bracket
-                                                            </button>
+                                                        <input type="hidden" name="start_tournament" value="1">
+                                                        <button type="button" class="btn-action" onclick="openLockModal(<?php echo $t['id']; ?>)">
+                                                            <i class="fa-solid fa-lock"></i> Lock Bracket
+                                                        </button>
                                                     </form>
                                                 <?php else: ?>
                                                     <button type="button" class="btn-action" style="opacity:0.5;cursor:not-allowed;" onclick="alert('You need a minimum of 3 accepted squads to start the tournament!')">
@@ -826,11 +931,12 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
                                                     </button>
                                                 <?php endif; ?>
                                             <?php elseif ($t['status'] === 'active'): ?>
-                                                <form method="POST" style="display:inline;" id="complete-tournament-form">
+                                                <form method="POST" style="display:inline;" id="complete-tournament-form-<?php echo $t['id']; ?>">
                                                     <input type="hidden" name="tournament_id" value="<?php echo $t['id']; ?>">
-                                                        <button type="button" class="btn-action" onclick="document.getElementById('complete-tournament-modal').classList.add('active')">
-                                                            <i class="fa-solid fa-flag-checkered"></i> Complete
-                                                        </button>
+                                                    <input type="hidden" name="complete_tournament" value="1">
+                                                    <button type="button" class="btn-action" onclick="openCompleteModal(<?php echo $t['id']; ?>)">
+                                                        <i class="fa-solid fa-flag-checkered"></i> Complete
+                                                    </button>
                                                 </form>
                                             <?php else: ?>
                                                 <span style="font-size:11px;color:var(--text-muted);font-style:italic;">Event Closed</span>
@@ -887,53 +993,6 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
             <?php endif; ?>
         </div>
 
-        <!-- Winner Modal -->
-        <div class="wmodal-overlay" id="wmodal" onclick="wmodalClose(event)">
-            <div class="wmodal" onclick="event.stopPropagation()">
-                <button class="wmodal-close" onclick="wmodalForceClose()">&times;</button>
-                <div class="wmodal-status" id="wmodalStatus">STATUS</div>
-                <div class="wmodal-title">Match Details</div>
-                <div class="wmodal-vs">
-                    <div class="wmodal-team">
-                        <h3 id="wmodalTeam1">—</h3>
-                        <div class="wmodal-score-big" id="wmodalScore1">-</div>
-                    </div>
-                    <div class="wmodal-vs-badge">VS</div>
-                    <div class="wmodal-team">
-                        <h3 id="wmodalTeam2">—</h3>
-                        <div class="wmodal-score-big" id="wmodalScore2">-</div>
-                    </div>
-                </div>
-
-                <div id="wmodalCompleted" style="display:none;" class="completed-result">
-                    <p id="wmodalCompletedWinner"></p>
-                </div>
-
-                <div id="wmodalPicker" style="display:none;">
-                    <div class="wmodal-divider"></div>
-                    <div class="wmodal-section-title"><i class="fa-solid fa-trophy"></i> Set Match Result</div>
-                    <input type="hidden" id="wmodalMatchId">
-                    <div class="score-row">
-                        <div class="score-wrap">
-                            <label id="wmodalScoreLabel1">Team 1</label>
-                            <input type="number" id="wmodalInputScore1" class="score-input" min="0" value="0">
-                        </div>
-                        <div class="score-sep">:</div>
-                        <div class="score-wrap">
-                            <label id="wmodalScoreLabel2">Team 2</label>
-                            <input type="number" id="wmodalInputScore2" class="score-input" min="0" value="0">
-                        </div>
-                    </div>
-                    <div class="winner-btns">
-                        <button id="wmodalBtnT1" class="btn-pick-winner" data-team-id="" onclick="submitWinner('team1')">🏆 Team 1 Wins</button>
-                        <button id="wmodalBtnT2" class="btn-pick-winner" data-team-id="" onclick="submitWinner('team2')">🏆 Team 2 Wins</button>
-                    </div>
-                    <div class="wmodal-feedback" id="wmodalFeedback"></div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ══ ARCHIVED EVENTS ═════════════════════════════════════════════════ -->
         <div id="tab-archive" class="tab-content">
             <div class="panel">
                 <div class="panel-head"><i class="fa-solid fa-box-archive"></i> Archived Tournaments</div>
@@ -949,11 +1008,12 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
                                     <td><?php echo htmlspecialchars($arc['max_teams']); ?></td>
                                     <td><?php echo date("M j, Y", strtotime($arc['created_at'])); ?></td>
                                     <td>
-                                        <form method="POST" style="display:inline;" id="restore-tournament-form">
+                                        <form method="POST" style="display:inline;" id="restore-tournament-form-<?php echo $arc['id']; ?>">
                                             <input type="hidden" name="tournament_id" value="<?php echo $arc['id']; ?>">
-                                                <button type="button" class="btn-action" onclick="document.getElementById('restore-tournament-modal').classList.add('active')">
-                                                    <i class="fa-solid fa-rotate-left"></i> Restore
-                                                </button>
+                                            <input type="hidden" name="restore_tournament" value="1">
+                                            <button type="button" class="btn-action" onclick="openRestoreModal(<?php echo $arc['id']; ?>)">
+                                                <i class="fa-solid fa-rotate-left"></i> Restore
+                                            </button>
                                         </form>
                                     </td>
                                 </tr>
@@ -967,7 +1027,6 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
             </div>
         </div>
 
-        <!-- ══ PROFILE ═════════════════════════════════════════════════════════ -->
         <div id="tab-profile" class="tab-content">
             <div class="grid-2">
                 <div class="panel">
@@ -1007,12 +1066,153 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
             </div>
         </div>
 
-    </div><!-- /content-body -->
-</main>
+    </div></main>
+
+<div class="wmodal-overlay" id="wmodalOverlay" onclick="wmodalBgClose(event)">
+    <div class="wmodal" id="wmodal">
+        <button class="wmodal-close" onclick="wmodalForceClose()">&times;</button>
+        <div class="wmodal-status" id="wmodalStatus">STATUS</div>
+        <div class="wmodal-title">Match Details</div>
+        
+        <div class="wmodal-vs">
+            <div class="wmodal-team">
+                <img id="wmodalLogo1" src="" alt="Team 1 Logo" class="wmodal-logo">
+                <h3 id="wmodalTeam1">—</h3>
+                <div class="wmodal-score-big" id="wmodalScore1">-</div>
+            </div>
+            <div class="wmodal-vs-badge">VS</div>
+            <div class="wmodal-team">
+                <img id="wmodalLogo2" src="" alt="Team 2 Logo" class="wmodal-logo">
+                <h3 id="wmodalTeam2">—</h3>
+                <div class="wmodal-score-big" id="wmodalScore2">-</div>
+            </div>
+        </div>
+
+        <div id="wmodalCompleted" style="display:none;" class="completed-result">
+            <p id="wmodalCompletedWinner"></p>
+        </div>
+
+        <div id="wmodalPicker" style="display:none;">
+            <div class="wmodal-divider"></div>
+            <div class="wmodal-section-title"><i class="fa-solid fa-trophy"></i> Set Match Result</div>
+            <input type="hidden" id="wmodalMatchId">
+            <div class="score-row">
+                <div class="score-wrap">
+                    <label id="wmodalScoreLabel1">Team 1</label>
+                    <input type="number" id="wmodalInputScore1" class="score-input" min="0" value="0">
+                </div>
+                <div class="score-sep">:</div>
+                <div class="score-wrap">
+                    <label id="wmodalScoreLabel2">Team 2</label>
+                    <input type="number" id="wmodalInputScore2" class="score-input" min="0" value="0">
+                </div>
+            </div>
+            <div class="winner-btns">
+                <button id="wmodalBtnT1" class="btn-pick-winner" data-team-id="" onclick="submitWinner('team1')">🏆 Team 1 Wins</button>
+                <button id="wmodalBtnT2" class="btn-pick-winner" data-team-id="" onclick="submitWinner('team2')">🏆 Team 2 Wins</button>
+            </div>
+            <div class="wmodal-feedback" id="wmodalFeedback"></div>
+        </div>
+
+        <div class="wmodal-action-row" id="wmodalActionRow" style="display:none;">
+            <button class="btn-wmodal-warn" id="wmodalWarnT1"><i class="fa-solid fa-triangle-exclamation"></i> Warn Team 1</button>
+            <button class="btn-wmodal-dq"   id="wmodalDqT1"><i class="fa-solid fa-ban"></i> DQ Team 1</button>
+            <button class="btn-wmodal-warn" id="wmodalWarnT2"><i class="fa-solid fa-triangle-exclamation"></i> Warn Team 2</button>
+            <button class="btn-wmodal-dq"   id="wmodalDqT2"><i class="fa-solid fa-ban"></i> DQ Team 2</button>
+        </div>
+
+        <div id="wmodalActionLog"></div>
+    </div>
+</div>
+
+<div class="reason-modal-overlay" id="reasonModal">
+    <div class="reason-modal">
+        <button class="reason-modal-close" onclick="closeReasonModal()">&times;</button>
+        <div class="reason-modal-icon" id="reasonModalIcon">⚠️</div>
+        <div class="reason-modal-title" id="reasonModalTitle">Issue Warning</div>
+        <div class="reason-modal-sub" id="reasonModalSub">Warning will be logged for this team.</div>
+        <textarea id="reasonModalText" placeholder="Enter reason..."></textarea>
+        <div class="reason-modal-error" id="reasonModalError"></div>
+        <div class="reason-modal-actions">
+            <button class="btn-reason-cancel" onclick="closeReasonModal()">Cancel</button>
+            <button class="btn-reason-confirm warn" id="reasonModalConfirm" onclick="submitReasonAction()">Issue Warning</button>
+        </div>
+    </div>
+</div>
+
+<div id="signout-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+        <div class="modal-title">Sign Out</div>
+        <div class="modal-text">Are you sure you want to sign out?<br><span style="color:var(--text-muted);font-size:12px;">Your session will be ended.</span></div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('signout-modal').classList.remove('active')">Cancel</button>
+            <a href="logout.php" class="btn-modal-confirm"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
+        </div>
+    </div>
+</div>
+
+<div id="lock-bracket-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-lock"></i></div>
+        <div class="modal-title">Lock Bracket</div>
+        <div class="modal-text">Lock the bracket? No more registrations will be accepted!<br><span style="color:var(--text-muted);font-size:12px;">This cannot be undone.</span></div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('lock-bracket-modal').classList.remove('active')">Cancel</button>
+            <button class="btn-modal-confirm" id="lockBracketConfirmBtn"><i class="fa-solid fa-lock"></i> Lock</button>
+        </div>
+    </div>
+</div>
+
+<div id="complete-tournament-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-flag-checkered"></i></div>
+        <div class="modal-title">Complete Tournament</div>
+        <div class="modal-text">Mark this tournament as fully completed?<br><span style="color:var(--text-muted);font-size:12px;">This cannot be undone.</span></div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('complete-tournament-modal').classList.remove('active')">Cancel</button>
+            <button class="btn-modal-confirm" id="completeTournamentConfirmBtn"><i class="fa-solid fa-flag-checkered"></i> Complete</button>
+        </div>
+    </div>
+</div>
+
+<div id="restore-tournament-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon"><i class="fa-solid fa-rotate-left"></i></div>
+        <div class="modal-title">Restore Tournament</div>
+        <div class="modal-text">Restore this tournament back to active?</div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('restore-tournament-modal').classList.remove('active')">Cancel</button>
+            <button class="btn-modal-confirm" id="restoreTournamentConfirmBtn"><i class="fa-solid fa-rotate-left"></i> Restore</button>
+        </div>
+    </div>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
-// ── AJAX HELPER ───────────────────────────────────────────────────────────────
+// ── MODAL OPENERS ──
+function openLockModal(tid) {
+    document.getElementById('lockBracketConfirmBtn').onclick = function() {
+        document.getElementById('lock-bracket-form-' + tid).submit();
+    };
+    document.getElementById('lock-bracket-modal').classList.add('active');
+}
+
+function openCompleteModal(tid) {
+    document.getElementById('completeTournamentConfirmBtn').onclick = function() {
+        document.getElementById('complete-tournament-form-' + tid).submit();
+    };
+    document.getElementById('complete-tournament-modal').classList.add('active');
+}
+
+function openRestoreModal(tid) {
+    document.getElementById('restoreTournamentConfirmBtn').onclick = function() {
+        document.getElementById('restore-tournament-form-' + tid).submit();
+    };
+    document.getElementById('restore-tournament-modal').classList.add('active');
+}
+
+// ── AJAX HELPER ──
 function handleAjaxAction(action, id, buttonElement) {
     if (action === 'archive_tournament' && !confirm('Are you sure you want to archive this tournament?')) return;
 
@@ -1049,7 +1249,7 @@ function handleAjaxAction(action, id, buttonElement) {
     .catch(err => { if (err.message !== 'PHP Crash') alert('Network error. Check connection.'); });
 }
 
-// ── CHARTS ────────────────────────────────────────────────────────────────────
+// ── CHARTS ──
 Chart.defaults.color       = '#6a8fa8';
 Chart.defaults.borderColor = '#1e2a38';
 
@@ -1074,40 +1274,59 @@ new Chart(document.getElementById('chartRegs'), {
     options: { responsive:true, maintainAspectRatio:false, cutout:'65%', plugins:{ legend:{ display:false } } }
 });
 
-// ── TAB SWITCHING ─────────────────────────────────────────────────────────────
+// ── TAB SWITCHING ──
+const TAB_TITLES = {
+    'tab-overview': 'Statistics',
+    'tab-create':   'Launch New Event',
+    'tab-manage':   'Registration & Bracket Control',
+    'tab-archive':  'Archived Events',
+    'tab-profile':  'Account Settings'
+};
+
 function switchTab(tabId, element) {
     document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    document.getElementById('sidebar-footer-profile').classList.remove('active-profile');
+
     document.getElementById(tabId).classList.add('active');
+    document.getElementById('page-title-display').innerText = TAB_TITLES[tabId] || '';
 
-    if (!element) element = document.querySelector(`.nav-item[onclick*="${tabId}"]`);
-    if (element && element.classList.contains('nav-item')) element.classList.add('active');
+    if (tabId === 'tab-profile') {
+        document.getElementById('sidebar-footer-profile').classList.add('active-profile');
+    } else {
+        const navEl = document.getElementById('nav-' + tabId);
+        if (navEl) navEl.classList.add('active');
+    }
 
-    const titleMap = {
-        'tab-overview': 'Statistics',
-        'tab-create':   'Launch New Event',
-        'tab-manage':   'Registration & Bracket Control',
-        'tab-archive':  'Archived Events',
-        'tab-profile':  'Account Settings'
-    };
-    document.getElementById('page-title-display').innerText = titleMap[tabId] || '';
     sessionStorage.setItem('activeDiffCheckTab', tabId);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     const saved = sessionStorage.getItem('activeDiffCheckTab');
-    if (saved) switchTab(saved, null);
+    if (saved && document.getElementById(saved)) switchTab(saved, null);
     initBracket();
+
+    const alertEl = document.querySelector('.alert');
+    if (alertEl) {
+        setTimeout(() => {
+            alertEl.style.transition = 'opacity 0.5s';
+            alertEl.style.opacity = '0';
+            setTimeout(() => alertEl.remove(), 500);
+        }, 3000);
+    }
+    if (document.querySelector('.alert-success')) {
+        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+    }
 });
 
-// ── BRACKET DATA & RENDERER ───────────────────────────────────────────────────
+// ── BRACKET DATA & RENDERER ──
 const ALL_BRACKETS = <?php echo $js_all_brackets; ?>;
 let activeTid   = null;
 let activeRound = null;
 let activeMatch = null;
 
 const BSTROKE = '#1e2a38';
-const GSTROKE = '#b8902a';  // gold connector
+const GSTROKE = '#b8902a';
 
 function initBracket() {
     const tids = Object.keys(ALL_BRACKETS);
@@ -1136,7 +1355,7 @@ function esc(str) {
 
 function renderBracket(data) {
     const root = document.getElementById('bracketRoot');
-    const { totalRounds, normTeams, bracket, champion } = data;
+    const { totalRounds, normTeams, bracket, champion, champion_logo } = data;
     let html = '';
 
     for (let r = 1; r <= totalRounds; r++) {
@@ -1161,13 +1380,28 @@ function renderBracket(data) {
 
             const c1 = !t1 ? 'tbd' : (winner === 'team1' ? 'winner' : (winner === 'team2' ? 'loser' : ''));
             const c2 = !t2 ? 'tbd' : (winner === 'team2' ? 'winner' : (winner === 'team1' ? 'loser' : ''));
-            const cardCls   = `b-matchup${status === 'completed' ? ' completed' : ''}${isBye ? ' is-bye' : ''}`;
-            const clickEvt  = isBye ? '' : `onclick="openWModal(${r}, ${m})"`;
+            const cardCls  = `b-matchup${status === 'completed' ? ' completed' : ''}${isBye ? ' is-bye' : ''}`;
+            const clickEvt = isBye ? '' : `onclick="openWModal(${r}, ${m})"`;
+
+            const l1 = match?.team1_logo || 'default_logo.png';
+            const l2 = match?.team2_logo || 'default_logo.png';
 
             html += `<div class="b-match-slot" id="bs-${r}-${m}">
                 <div class="${cardCls}" ${clickEvt}>
-                    <div class="b-team-row ${c1}"><span class="b-team-name">${t1d}</span><span class="b-score">${s1}</span></div>
-                    <div class="b-team-row ${c2}"><span class="b-team-name">${t2d}</span><span class="b-score">${s2}</span></div>
+                    <div class="b-team-row ${c1}">
+                        <div class="b-team-identity">
+                            ${t1 ? `<img src="uploads/squads/${l1}" class="bracket-logo" onerror="this.onerror=null; this.src='uploads/squads/default_logo.png';">` : ''}
+                            <span class="b-team-name">${t1d}</span>
+                        </div>
+                        <span class="b-score">${s1}</span>
+                    </div>
+                    <div class="b-team-row ${c2}">
+                        <div class="b-team-identity">
+                            ${t2 ? `<img src="uploads/squads/${l2}" class="bracket-logo" onerror="this.onerror=null; this.src='uploads/squads/default_logo.png';">` : ''}
+                            <span class="b-team-name">${t2d}</span>
+                        </div>
+                        <span class="b-score">${s2}</span>
+                    </div>
                 </div>
             </div>`;
         }
@@ -1177,8 +1411,8 @@ function renderBracket(data) {
         html += `</div>`;
     }
 
-    // ── Champion column ──
     if (champion) {
+        const champLogo = champion_logo ? `uploads/squads/${champion_logo}` : 'uploads/squads/default_logo.png';
         html += `
         <div class="b-round-pair">
             <div class="b-connector" id="bc-champ-left"><svg id="bsvg-champ-left"></svg></div>
@@ -1187,7 +1421,7 @@ function renderBracket(data) {
                 <div class="b-matches-col b-champ-matches" id="bm-champ">
                     <div class="b-match-slot" id="bs-champ">
                         <div class="b-champ-card">
-                            <div class="b-trophy">🏆</div>
+                            <img src="${champLogo}" class="champ-bracket-logo" onerror="this.onerror=null; this.src='uploads/squads/default_logo.png';">
                             <div class="b-champ-name">${esc(champion)}</div>
                             <div class="b-champ-label">Winner</div>
                         </div>
@@ -1204,15 +1438,14 @@ function renderBracket(data) {
 function drawBracketConnectors(data) {
     const { totalRounds, normTeams, champion } = data;
 
-    // Standard round connectors
     for (let r = 1; r < totalRounds; r++) {
-        const mc    = normTeams / Math.pow(2, r);
-        const colEl = document.getElementById('bm-'      + r);
-        const ncolEl= document.getElementById('bm-'      + (r+1));
-        const rCol  = document.getElementById('bc-right-'+ r);
-        const lCol  = document.getElementById('bc-left-' + (r+1));
-        const svgR  = document.getElementById('bsvg-right-'+ r);
-        const svgL  = document.getElementById('bsvg-left-' + (r+1));
+        const mc     = normTeams / Math.pow(2, r);
+        const colEl  = document.getElementById('bm-'       + r);
+        const ncolEl = document.getElementById('bm-'       + (r+1));
+        const rCol   = document.getElementById('bc-right-' + r);
+        const lCol   = document.getElementById('bc-left-'  + (r+1));
+        const svgR   = document.getElementById('bsvg-right-' + r);
+        const svgL   = document.getElementById('bsvg-left-'  + (r+1));
         if (!colEl||!ncolEl||!rCol||!lCol||!svgR||!svgL) continue;
 
         const cRect  = colEl.getBoundingClientRect();
@@ -1242,7 +1475,6 @@ function drawBracketConnectors(data) {
         svgL.innerHTML = lLines;
     }
 
-    // Gold connector from Grand Finals → Champion card
     if (champion) {
         const finalSlot = document.getElementById(`bs-${totalRounds}-1`);
         const champSlot = document.getElementById('bs-champ');
@@ -1268,7 +1500,9 @@ function drawBracketConnectors(data) {
     }
 }
 
-// ── WINNER MODAL ──────────────────────────────────────────────────────────────
+// ── WINNER MODAL ──
+let _wmodalState = {};
+
 function openWModal(r, m) {
     const data  = ALL_BRACKETS[activeTid];
     if (!data) return;
@@ -1280,46 +1514,82 @@ function openWModal(r, m) {
     const t1 = match.team1 || 'TBD';
     const t2 = match.team2 || 'TBD';
 
-    document.getElementById('wmodalTeam1').textContent   = t1;
-    document.getElementById('wmodalTeam2').textContent   = t2;
-    document.getElementById('wmodalScore1').textContent  = (match.score1 !== null && match.score1 !== '') ? match.score1 : '-';
-    document.getElementById('wmodalScore2').textContent  = (match.score2 !== null && match.score2 !== '') ? match.score2 : '-';
+    document.getElementById('wmodalTeam1').textContent  = t1;
+    document.getElementById('wmodalTeam2').textContent  = t2;
+    document.getElementById('wmodalScore1').textContent = (match.score1 !== null && match.score1 !== '') ? match.score1 : '-';
+    document.getElementById('wmodalScore2').textContent = (match.score2 !== null && match.score2 !== '') ? match.score2 : '-';
+
+    // SET MODAL LOGOS
+    const logo1 = match.team1_logo ? `uploads/squads/${match.team1_logo}` : 'uploads/squads/default_logo.png';
+    const logo2 = match.team2_logo ? `uploads/squads/${match.team2_logo}` : 'uploads/squads/default_logo.png';
+    
+    const img1 = document.getElementById('wmodalLogo1');
+    const img2 = document.getElementById('wmodalLogo2');
+    if (img1) img1.src = t1 !== 'TBD' ? logo1 : 'uploads/squads/default_logo.png';
+    if (img2) img2.src = t2 !== 'TBD' ? logo2 : 'uploads/squads/default_logo.png';
 
     const statusEl  = document.getElementById('wmodalStatus');
     const picker    = document.getElementById('wmodalPicker');
     const completed = document.getElementById('wmodalCompleted');
+    const actionRow = document.getElementById('wmodalActionRow');
+    const logArea   = document.getElementById('wmodalActionLog');
 
-    const canPick = data.status === 'active' && match.status !== 'completed' && match.team1 !== null && match.team2 !== null;
+    logArea.innerHTML = '';
+    const logs     = _wmodalState.logs || {};
+    const matchLogs = logs[`${activeTid}-${r}-${m}`] || [];
+    if (matchLogs.length > 0) {
+        const logDiv = document.createElement('div');
+        logDiv.className = 'action-log';
+        matchLogs.forEach(entry => {
+            const item = document.createElement('div');
+            item.className = `action-log-item ${entry.type}`;
+            item.innerHTML = `<i class="fa-solid fa-${entry.type === 'warn' ? 'triangle-exclamation' : 'ban'}"></i>
+                <span><strong>${entry.team}</strong>: ${entry.reason}</span>`;
+            logDiv.appendChild(item);
+        });
+        logArea.appendChild(logDiv);
+    }
+
+    const canAct = data.status === 'active' && match.status !== 'completed' && match.team1 !== null && match.team2 !== null;
 
     if (match.status === 'completed') {
         statusEl.textContent = '✓ MATCH COMPLETED'; statusEl.style.color = 'var(--green)';
         picker.style.display    = 'none';
         completed.style.display = 'block';
+        actionRow.style.display = 'none';
         const wName = match.winner === 'team1' ? match.team1 : (match.winner === 'team2' ? match.team2 : '—');
         document.getElementById('wmodalCompletedWinner').textContent = '🏆 Winner: ' + wName;
-    } else if (canPick) {
+    } else if (canAct) {
         statusEl.textContent = '● PENDING'; statusEl.style.color = 'var(--orange)';
         completed.style.display = 'none';
         picker.style.display    = 'block';
-        document.getElementById('wmodalScoreLabel1').textContent  = t1;
-        document.getElementById('wmodalScoreLabel2').textContent  = t2;
-        document.getElementById('wmodalInputScore1').value        = '';
-        document.getElementById('wmodalInputScore2').value        = '';
-        document.getElementById('wmodalBtnT1').textContent        = '🏆 ' + t1 + ' Wins';
-        document.getElementById('wmodalBtnT2').textContent        = '🏆 ' + t2 + ' Wins';
-        document.getElementById('wmodalBtnT1').dataset.teamId     = match.team1_id;
-        document.getElementById('wmodalBtnT2').dataset.teamId     = match.team2_id;
+        actionRow.style.display = 'flex';
+
+        document.getElementById('wmodalScoreLabel1').textContent = t1;
+        document.getElementById('wmodalScoreLabel2').textContent = t2;
+        document.getElementById('wmodalInputScore1').value       = '';
+        document.getElementById('wmodalInputScore2').value       = '';
+        document.getElementById('wmodalBtnT1').textContent       = '🏆 ' + t1 + ' Wins';
+        document.getElementById('wmodalBtnT2').textContent       = '🏆 ' + t2 + ' Wins';
+        document.getElementById('wmodalBtnT1').dataset.teamId    = match.team1_id;
+        document.getElementById('wmodalBtnT2').dataset.teamId    = match.team2_id;
         document.getElementById('wmodalBtnT1').classList.remove('chosen');
         document.getElementById('wmodalBtnT2').classList.remove('chosen');
-        document.getElementById('wmodalMatchId').value            = match.match_id;
-        document.getElementById('wmodalFeedback').textContent     = '';
+        document.getElementById('wmodalMatchId').value           = match.match_id;
+        document.getElementById('wmodalFeedback').textContent    = '';
+
+        document.getElementById('wmodalWarnT1').onclick = () => openReasonModal('warn', match.team1_id, t1, match.team2_id, match.match_id, activeTid, r, m);
+        document.getElementById('wmodalWarnT2').onclick = () => openReasonModal('warn', match.team2_id, t2, match.team1_id, match.match_id, activeTid, r, m);
+        document.getElementById('wmodalDqT1').onclick   = () => openReasonModal('dq',   match.team1_id, t1, match.team2_id, match.match_id, activeTid, r, m);
+        document.getElementById('wmodalDqT2').onclick   = () => openReasonModal('dq',   match.team2_id, t2, match.team1_id, match.match_id, activeTid, r, m);
     } else {
         statusEl.textContent = '● PENDING'; statusEl.style.color = 'var(--orange)';
         completed.style.display = 'none';
         picker.style.display    = 'none';
+        actionRow.style.display = 'none';
     }
 
-    document.getElementById('wmodal').classList.add('open');
+    document.getElementById('wmodalOverlay').classList.add('open');
 }
 
 function submitWinner(team) {
@@ -1345,7 +1615,7 @@ function submitWinner(team) {
     .then(async r => {
         const text = await r.text();
         try { return JSON.parse(text); }
-        catch(e) { alert("DATABASE ERROR DETECTED:\n\n" + text); throw new Error("PHP Crash"); }
+        catch(e) { alert("DATABASE ERROR:\n\n" + text); throw new Error("PHP Crash"); }
     })
     .then(data => {
         if (data.status === 'success') {
@@ -1356,19 +1626,22 @@ function submitWinner(team) {
             match.score2 = score2;
             match.winner = team;
 
-            // Advance winner in local bracket data
+            // Carry Logo to Next Round!
             const nextR  = activeRound + 1;
             const nextM  = Math.ceil(activeMatch / 2);
             const slot   = activeMatch % 2 === 1 ? 'team1'    : 'team2';
             const slotId = activeMatch % 2 === 1 ? 'team1_id' : 'team2_id';
+            const logoSlot = activeMatch % 2 === 1 ? 'team1_logo' : 'team2_logo';
+            const winningLogo = team === 'team1' ? match.team1_logo : match.team2_logo;
+
             if (bd.bracket[nextR] && bd.bracket[nextR][nextM]) {
                 bd.bracket[nextR][nextM][slot]   = data.winner_name;
                 bd.bracket[nextR][nextM][slotId] = parseInt(winnerId);
+                bd.bracket[nextR][nextM][logoSlot] = winningLogo;
             }
-
-            // If this was the Grand Final, set the champion
             if (activeRound === bd.totalRounds) {
                 bd.champion = data.winner_name;
+                bd.champion_logo = winningLogo;
             }
 
             document.getElementById('wmodalFeedback').textContent = '✓ Saved!';
@@ -1383,89 +1656,123 @@ function submitWinner(team) {
     });
 }
 
-function wmodalClose(e)  { if (e.target.id === 'wmodal') document.getElementById('wmodal').classList.remove('open'); }
-function wmodalForceClose() { document.getElementById('wmodal').classList.remove('open'); }
+function wmodalBgClose(e) {
+    if (e.target === document.getElementById('wmodalOverlay')) wmodalForceClose();
+}
+function wmodalForceClose() {
+    document.getElementById('wmodalOverlay').classList.remove('open');
+}
+
+// ── REASON MODAL ──
+let _reasonCtx = {};
+
+function openReasonModal(type, teamId, teamName, opponentId, matchId, tId, round, matchNum) {
+    _reasonCtx = { type, teamId, teamName, opponentId, matchId, tId, round, matchNum };
+
+    const isWarn = type === 'warn';
+    document.getElementById('reasonModalIcon').textContent   = isWarn ? '⚠️' : '🚫';
+    document.getElementById('reasonModalTitle').textContent  = isWarn ? 'Issue Warning' : 'Disqualify Team';
+    document.getElementById('reasonModalSub').textContent    = isWarn
+        ? `Warning will be logged for: ${teamName}`
+        : `${teamName} will be DQ'd and their opponent auto-advances.`;
+    document.getElementById('reasonModalText').value         = '';
+    document.getElementById('reasonModalError').textContent  = '';
+
+    const btn = document.getElementById('reasonModalConfirm');
+    btn.textContent = isWarn ? 'Issue Warning' : 'Disqualify';
+    btn.className   = `btn-reason-confirm ${isWarn ? 'warn' : 'dq'}`;
+    btn.disabled    = false;
+
+    document.getElementById('reasonModal').classList.add('open');
+}
+
+function closeReasonModal() {
+    document.getElementById('reasonModal').classList.remove('open');
+}
+
+function submitReasonAction() {
+    const reason = document.getElementById('reasonModalText').value.trim();
+    if (!reason) {
+        document.getElementById('reasonModalError').textContent = 'Please enter a reason.';
+        return;
+    }
+    document.getElementById('reasonModalError').textContent = '';
+
+    const { type, teamId, teamName, opponentId, matchId, tId, round, matchNum } = _reasonCtx;
+    const action = type === 'warn' ? 'warn_team' : 'dq_team';
+
+    const fd = new URLSearchParams();
+    fd.append('ajax_action',  action);
+    fd.append('match_id',     matchId);
+    fd.append('team_id',      teamId);
+    fd.append('opponent_id',  opponentId);
+    fd.append('t_id',         tId);
+    fd.append('reason',       reason);
+
+    const confirmBtn = document.getElementById('reasonModalConfirm');
+    confirmBtn.textContent = 'Saving...';
+    confirmBtn.disabled    = true;
+
+    fetch('', { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body: fd.toString() })
+    .then(async r => {
+        const text = await r.text();
+        try { return JSON.parse(text); }
+        catch(e) { alert("DB ERROR:\n\n" + text); throw new Error("PHP Crash"); }
+    })
+    .then(data => {
+        confirmBtn.disabled = false;
+        if (data.status === 'success') {
+            closeReasonModal();
+
+            const logKey = `${tId}-${round}-${matchNum}`;
+            if (!_wmodalState.logs) _wmodalState.logs = {};
+            if (!_wmodalState.logs[logKey]) _wmodalState.logs[logKey] = [];
+            _wmodalState.logs[logKey].push({ type: type === 'warn' ? 'warn' : 'dq', team: teamName, reason });
+
+            if (type === 'dq') {
+                const bd    = ALL_BRACKETS[tId];
+                const match = bd.bracket[round][matchNum];
+                match.status = 'completed';
+                match.score1 = null; match.score2 = null;
+
+                const winnerIsT1 = parseInt(opponentId) === parseInt(match.team1_id);
+                match.winner = winnerIsT1 ? 'team1' : 'team2';
+
+                const nextR  = round + 1;
+                const nextM  = Math.ceil(matchNum / 2);
+                const slot   = matchNum % 2 === 1 ? 'team1' : 'team2';
+                const slotId = matchNum % 2 === 1 ? 'team1_id' : 'team2_id';
+                const logoSlot = matchNum % 2 === 1 ? 'team1_logo' : 'team2_logo';
+                const winningLogo = winnerIsT1 ? match.team1_logo : match.team2_logo;
+
+                if (bd.bracket[nextR] && bd.bracket[nextR][nextM]) {
+                    bd.bracket[nextR][nextM][slot]   = data.winner_name;
+                    bd.bracket[nextR][nextM][slotId] = parseInt(opponentId);
+                    bd.bracket[nextR][nextM][logoSlot] = winningLogo;
+                }
+                if (round === bd.totalRounds) {
+                    bd.champion = data.winner_name;
+                    bd.champion_logo = winningLogo;
+                }
+
+                renderBracket(bd);
+                wmodalForceClose();
+            } else {
+                openWModal(round, matchNum);
+            }
+        } else {
+            document.getElementById('reasonModalError').textContent = data.message || 'An error occurred.';
+        }
+    })
+    .catch(() => {
+        confirmBtn.disabled = false;
+        document.getElementById('reasonModalError').textContent = 'Network error.';
+    });
+}
 
 window.addEventListener('resize', () => {
     if (activeTid && ALL_BRACKETS[activeTid]) drawBracketConnectors(ALL_BRACKETS[activeTid]);
 });
 </script>
-
-<div id="signout-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="modal-box">
-        <div class="modal-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
-        <div class="modal-title">Sign Out</div>
-        <div class="modal-text">
-            Are you sure you want to sign out?<br>
-            <span style="color: var(--text-muted); font-size: 12px;">Your session will be ended and you'll be redirected to the homepage.</span>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-modal-cancel" onclick="document.getElementById('signout-modal').classList.remove('active')">Cancel</button>
-            <a href="logout.php" class="btn-modal-confirm"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
-        </div>
-    </div>
-</div>
-</body>
-</html>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const alert = document.querySelector('.alert');
-    if (alert) {
-        setTimeout(() => {
-            alert.style.transition = 'opacity 0.5s';
-            alert.style.opacity = '0';
-            setTimeout(() => alert.remove(), 500);
-        }, 3000);
-    }
-    if (document.querySelector('.alert-success')) {
-        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-    }
-});
-</script>
-
-<!-- Lock Bracket Modal -->
-<div id="lock-bracket-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="modal-box">
-        <div class="modal-icon"><i class="fa-solid fa-lock"></i></div>
-        <div class="modal-title">Lock Bracket</div>
-        <div class="modal-text">Lock the bracket? No more registrations will be accepted!<br>
-            <span style="color:var(--text-muted); font-size:12px;">This cannot be undone.</span>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-modal-cancel" onclick="document.getElementById('lock-bracket-modal').classList.remove('active')">Cancel</button>
-            <button class="btn-modal-confirm" onclick="document.getElementById('lock-bracket-form').submit()"><i class="fa-solid fa-lock"></i> Lock</button>
-        </div>
-    </div>
-</div>
-
-<!-- Complete Tournament Modal -->
- <div id="complete-tournament-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="modal-box">
-        <div class="modal-icon"><i class="fa-solid fa-flag-checkered"></i></div>
-        <div class="modal-title">Complete Tournament</div>
-        <div class="modal-text">Mark this tournament as fully completed?<br>
-            <span style="color:var(--text-muted); font-size:12px;">This cannot be undone.</span>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-modal-cancel" onclick="document.getElementById('complete-tournament-modal').classList.remove('active')">Cancel</button>
-            <button class="btn-modal-confirm" onclick="document.getElementById('complete-tournament-form').submit()"><i class="fa-solid fa-flag-checkered"></i> Complete</button>
-        </div>
-    </div>
-</div>
-
-<!-- Restore Tournament Modal -->
- <div id="restore-tournament-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="modal-box">
-        <div class="modal-icon"><i class="fa-solid fa-rotate-left"></i></div>
-        <div class="modal-title">Restore Tournament</div>
-        <div class="modal-text">Restore this tournament back to active?</div>
-        <div class="modal-actions">
-            <button class="btn-modal-cancel" onclick="document.getElementById('restore-tournament-modal').classList.remove('active')">Cancel</button>
-            <button class="btn-modal-confirm" onclick="document.getElementById('restore-tournament-form').submit()"><i class="fa-solid fa-rotate-left"></i> Restore</button>
-        </div>
-    </div>
-</div>
-
 </body>
 </html>

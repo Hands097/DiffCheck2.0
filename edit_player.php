@@ -16,9 +16,18 @@ if (mysqli_num_rows($query) == 0) {
 }
 $player = mysqli_fetch_assoc($query);
 
+// Split the existing name into First and Last to display in the inputs
+$name_parts = explode(' ', $player['name'], 2);
+$current_first_name = $name_parts[0] ?? '';
+$current_last_name  = $name_parts[1] ?? '';
+
 if (isset($_POST['edit_player'])) {
-    $name = mysqli_real_escape_string($conn, $_POST['name']);
-    $ign = mysqli_real_escape_string($conn, $_POST['ign']);
+    // Combine the First and Last name inputs back into a single string for the database
+    $first_name = trim($_POST['first_name']);
+    $last_name  = trim($_POST['last_name']);
+    $name       = mysqli_real_escape_string($conn, $first_name . ' ' . $last_name);
+    
+    $ign  = mysqli_real_escape_string($conn, $_POST['ign']);
     $game = mysqli_real_escape_string($conn, $_POST['game']);
     $role = mysqli_real_escape_string($conn, $_POST['role']);
     
@@ -118,9 +127,15 @@ if (isset($_POST['edit_player'])) {
             <div class="panel-head"><i class="fa-solid fa-user-ninja"></i> Edit Player: <?php echo htmlspecialchars($player['ign']); ?></div>
             <div class="panel-body">
                 <form method="POST">
-                    <div class="form-group">
-                        <label class="form-label">Real Name (Max 20 chars)</label>
-                        <input type="text" name="name" class="form-control" value="<?php echo htmlspecialchars($player['name']); ?>" maxlength="20" required>
+                    <div class="form-group" style="display: flex; gap: 15px;">
+                        <div style="flex: 1;">
+                            <label class="form-label">First Name</label>
+                            <input type="text" name="first_name" class="form-control" value="<?php echo htmlspecialchars($current_first_name); ?>" maxlength="20" required>
+                        </div>
+                        <div style="flex: 1;">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" name="last_name" class="form-control" value="<?php echo htmlspecialchars($current_last_name); ?>" maxlength="20" required>
+                        </div>
                     </div>
                     
                     <div class="form-group">

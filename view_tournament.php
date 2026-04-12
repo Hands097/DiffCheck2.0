@@ -75,6 +75,23 @@ try {
     }
 } catch (Exception $e) {}
 
+// Fetch logos for each squad
+$squad_logos = [];
+try {
+    $logos_sql = "
+        SELECT r.squad_name, s.logo 
+        FROM registrations r
+        JOIN squads s ON r.squad_name = s.name AND r.manager_id = s.manager_id
+        WHERE r.tournament_id='$tournament_id'
+    ";
+    $logo_query = @mysqli_query($conn, $logos_sql);
+    if ($logo_query) {
+        while ($l = mysqli_fetch_assoc($logo_query)) {
+            $squad_logos[$l['squad_name']] = !empty($l['logo']) ? $l['logo'] : 'default_logo.png';
+        }
+    }
+} catch (Exception $e) {}
+
 // Dynamic bracket sizing
 $champion_name = null;
 $r1_query   = mysqli_query($conn, "SELECT COUNT(*) as count FROM matches WHERE tournament_id='$tournament_id' AND round_number=1");
@@ -166,6 +183,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
         }
 
         /* ── TOPBAR ── */
+        /* ── TOPBAR ── */
         .topbar {
             background: var(--bg-panel);
             border-bottom: 1px solid var(--border);
@@ -177,22 +195,64 @@ for ($r = 1; $r <= $total_rounds; $r++) {
             flex-shrink: 0;
             z-index: 100;
         }
-        .topbar-left { display: flex; align-items: center; gap: 12px; }
-        .logo-box {
-            width: 38px; height: 38px; background: var(--teal); border-radius: 6px;
-            display: flex; align-items: center; justify-content: center;
-            font-family: 'Rajdhani', sans-serif; font-size: 10px; font-weight: 700; color: #000;
+        .topbar-left { display: flex; align-items: center; gap: 16px; }
+        
+        /* THIS WAS THE MISSING PIECE! */
+        .logo-image { 
+            height: 36px; 
+            object-fit: contain; 
+            flex-shrink: 0; 
+            display: block;
         }
-        .topbar-title {
-            font-family: 'Rajdhani', sans-serif; font-size: 20px; font-weight: 700;
-            letter-spacing: 1.5px; color: var(--text-primary); text-transform: uppercase;
-        }
-        .topbar-title span { color: var(--teal); }
+        
         .btn-back {
             color: var(--text-secondary); text-decoration: none; font-size: 13px;
             font-weight: 600; display: flex; align-items: center; gap: 6px; transition: color .15s;
         }
         .btn-back:hover { color: var(--text-primary); }
+
+        /* ── AVATAR DROPDOWN ── */
+        .user-menu { position: relative; }
+        .user-avatar {
+            width: 36px; height: 36px; border-radius: 50%; background: var(--teal); border: 2px solid var(--teal-dim);
+            display: flex; align-items: center; justify-content: center; font-family: 'Rajdhani', sans-serif;
+            font-size: 13px; font-weight: 700; color: #000; cursor: pointer; transition: border-color .2s, box-shadow .2s;
+            user-select: none; flex-shrink: 0;
+        }
+        .user-avatar:hover { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-glow); }
+        .user-dropdown {
+            position: absolute; top: calc(100% + 10px); right: 0; width: 200px;
+            background: var(--bg-panel); border: 1px solid var(--border-accent); border-radius: 10px;
+            overflow: hidden; opacity: 0; pointer-events: none; transform: translateY(-6px);
+            transition: opacity .18s ease, transform .18s ease; z-index: 100;
+        }
+        .user-menu.open .user-dropdown { opacity: 1; pointer-events: all; transform: translateY(0); }
+        .dropdown-header { padding: 14px 16px 12px; border-bottom: 1px solid var(--border); }
+        .dropdown-name { font-family: 'Rajdhani', sans-serif; font-size: 14px; font-weight: 700; color: var(--text-primary); letter-spacing: 0.5px; }
+        .dropdown-role { font-size: 11px; color: var(--teal); margin-top: 2px; letter-spacing: 0.3px; text-transform: uppercase; }
+        .dropdown-items { padding: 6px 0; }
+        .dropdown-item {
+            display: flex; align-items: center; gap: 10px; padding: 9px 16px; color: var(--text-secondary);
+            text-decoration: none; font-size: 13px; transition: background .15s, color .15s;
+        }
+        .dropdown-item:hover { background: var(--teal-glow-sm); color: var(--text-primary); }
+        .dropdown-item .di-icon { width: 16px; text-align: center; font-size: 14px; flex-shrink: 0; }
+        .dropdown-divider { height: 1px; background: var(--border); margin: 4px 0; }
+        .dropdown-item.logout { color: #e05555; }
+        .dropdown-item.logout:hover { background: rgba(224,85,85,0.08); color: #e05555; }
+        .guest-actions { display: flex; align-items: center; gap: 8px; }
+        .btn-login {
+            padding: 7px 18px; border-radius: 6px; border: 1px solid var(--border-accent); background: transparent;
+            color: var(--text-secondary); font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700;
+            letter-spacing: 1px; text-transform: uppercase; text-decoration: none; transition: border-color .15s, color .15s;
+        }
+        .btn-login:hover { border-color: var(--teal); color: var(--teal); }
+        .btn-register {
+            padding: 7px 18px; border-radius: 6px; border: none; background: var(--teal); color: #000;
+            font-family: 'Rajdhani', sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 1px;
+            text-transform: uppercase; text-decoration: none; transition: background .15s;
+        }
+        .btn-register:hover { background: var(--teal-dim); }
 
         /* ── PAGE LAYOUT ── */
         .page {
@@ -202,8 +262,11 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
         .page-header {
             display: flex; align-items: flex-start; justify-content: space-between;
-            flex-wrap: wrap; gap: 16px; margin-bottom: 18px;
+            flex-wrap: wrap; gap: 20px; margin-bottom: 18px;
             border-bottom: 1px solid var(--border); padding-bottom: 16px; flex-shrink: 0;
+        }
+        .page-title {
+            flex: 1; min-width: 250px; 
         }
         .page-title h1 {
             font-family: 'Rajdhani', sans-serif; font-size: 30px; font-weight: 700;
@@ -218,9 +281,14 @@ for ($r = 1; $r <= $total_rounds; $r++) {
             border-radius: 6px; border-left: 3px solid var(--teal);
         }
 
+        .header-right {
+            display: flex; flex-direction: column; align-items: flex-end; gap: 12px;
+            min-width: 220px;
+        }
+
         .status-chip {
             font-size: 12px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-            padding: 6px 16px; border-radius: 20px; margin-top: 5px;
+            padding: 6px 16px; border-radius: 20px;
         }
         .chip-pending   { background: rgba(0,194,160,0.12);  color: var(--status-open);   border: 1px solid rgba(0,194,160,0.3); }
         .chip-active    { background: rgba(79,163,224,0.12); color: var(--status-active); border: 1px solid rgba(79,163,224,0.3); }
@@ -234,20 +302,21 @@ for ($r = 1; $r <= $total_rounds; $r++) {
         .alert-success { background: rgba(0,194,160,0.1); color: var(--green); border-color: rgba(0,194,160,0.3); }
         .alert-error   { background: rgba(224,85,85,0.1); color: var(--red);   border-color: rgba(224,85,85,0.3); }
 
-        /* ── CHAMPION BANNER (top, tournament completed) ── */
+        /* ── CHAMPION BANNER ── */
         .champion-banner {
             background: linear-gradient(135deg, rgba(245,200,66,0.08), rgba(245,200,66,0.02));
-            border: 1px solid var(--gold); color: var(--text-primary); padding: 20px;
-            text-align: center; border-radius: 12px; margin-bottom: 16px;
-            box-shadow: 0 4px 24px var(--gold-glow); flex-shrink: 0;
+            border: 1px solid var(--gold); color: var(--text-primary); 
+            padding: 12px 20px; 
+            text-align: center; border-radius: 8px; margin: 0; width: 100%;
+            box-shadow: 0 4px 15px var(--gold-glow); flex-shrink: 0;
         }
         .champion-banner h3 {
-            font-family: 'Rajdhani', sans-serif; font-size: 13px; color: var(--gold);
-            letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px;
+            font-family: 'Rajdhani', sans-serif; font-size: 11px; color: var(--gold);
+            letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 4px;
         }
         .champion-banner h1 {
-            font-family: 'Rajdhani', sans-serif; font-size: 36px; font-weight: 700;
-            letter-spacing: 1px; color: #fff;
+            font-family: 'Rajdhani', sans-serif; font-size: 24px; font-weight: 700;
+            letter-spacing: 1px; color: #fff; margin: 0; 
         }
 
         /* ── BRACKET WRAPPER ── */
@@ -414,16 +483,72 @@ for ($r = 1; $r <= $total_rounds; $r++) {
             font-weight: 500; display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         .player-list li i { color: var(--teal); font-size: 10px; }
+        
+        /* NEW LOGO CSS FOR BRACKET */
+        .team-identity { display: flex; align-items: center; flex: 1; min-width: 0; }
+        .bracket-logo { width: 16px; height: 16px; border-radius: 3px; object-fit: cover; margin-right: 6px; flex-shrink: 0; background: rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.1); }
+        .champ-bracket-logo { width: 36px; height: 36px; border-radius: 6px; object-fit: cover; margin: 0 auto 8px; display: block; border: 1px solid var(--gold); }
     </style>
 </head>
 <body>
 
 <header class="topbar">
     <div class="topbar-left">
-        <div class="logo-box">DIFF<br>CHECK</div>
-        <div class="topbar-title">DIFF<span>CHECK</span></div>
+        <a href="<?php
+            $r = strtolower($_SESSION['role'] ?? '');
+            if ($r === 'admin') echo 'admin_dashboard.php';
+            elseif ($r === 'manager') echo 'manager_dashboard.php';
+            elseif ($r === 'organizer') echo 'organizer_dashboard.php';
+            else echo 'index.php';
+        ?>">
+            <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" class="logo-image">
+        </a>
+        
+        <span style="color: var(--border-accent);">|</span>
+        <a href="tournaments.php" class="btn-back"><i class="fa-solid fa-arrow-left"></i> Back</a>
     </div>
-    <a href="tournaments.php" class="btn-back">← Back to Tournaments</a>
+
+    <div class="topbar-right">
+        <?php if (isset($_SESSION['first_name'])): ?>
+        <div class="user-menu" id="userMenu">
+            <div class="user-avatar" id="avatarBtn">
+                <?php echo strtoupper(substr($_SESSION['first_name'], 0, 2)); ?>
+            </div>
+            <div class="user-dropdown">
+                <div class="dropdown-header">
+                    <div class="dropdown-name"><?php echo htmlspecialchars($_SESSION['first_name'] . ' ' . $_SESSION['last_name']); ?></div>
+                    <div class="dropdown-role">
+                        <?php 
+                            $role = strtolower($_SESSION['role'] ?? '');
+                            if ($role == 'admin') echo 'System Admin';
+                            elseif ($role == 'organizer') echo 'Tournament Organizer';
+                            else echo 'Squad Manager';
+                        ?>
+                    </div>
+                </div>
+                <div class="dropdown-items">
+                    <?php 
+                        $dash_link = 'manager_dashboard.php';
+                        if ($role == 'admin') $dash_link = 'admin_dashboard.php';
+                        if ($role == 'organizer') $dash_link = 'organizer_dashboard.php';
+                    ?>
+                    <a href="<?php echo $dash_link; ?>" class="dropdown-item">
+                        <span class="di-icon"><i class="fa-solid fa-chart-line"></i></span> Dashboard
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a onclick="document.getElementById('signout-modal').classList.add('active')" class="dropdown-item logout" style="cursor:pointer;">
+                        <span class="di-icon"><i class="fa-solid fa-right-from-bracket"></i></span> Sign Out
+                    </a>
+                </div>
+            </div>
+        </div>
+        <?php else: ?>
+        <div class="guest-actions">
+            <a href="login.php" class="btn-login">Sign In</a>
+            <a href="register.php" class="btn-register">Register</a>
+        </div>
+        <?php endif; ?>
+    </div>
 </header>
 
 <div class="page">
@@ -445,19 +570,22 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                 </div>
             <?php endif; ?>
         </div>
-        <div class="status-chip chip-<?php echo $tournament['status']; ?>">
-            ● <?php echo strtoupper($tournament['status']); ?>
+        
+        <div class="header-right">
+            <div class="status-chip chip-<?php echo $tournament['status']; ?>">
+                ● <?php echo strtoupper($tournament['status']); ?>
+            </div>
+            
+            <?php if ($tournament['status'] === 'completed' && $champion_name): ?>
+                <div class="champion-banner">
+                    <h3><i class="fa-solid fa-trophy"></i> Champion <i class="fa-solid fa-trophy"></i></h3>
+                    <h1><?php echo htmlspecialchars($champion_name); ?></h1>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
     <?php if ($tournament['status'] === 'active' || $tournament['status'] === 'completed'): ?>
-
-        <?php if ($tournament['status'] === 'completed' && $champion_name): ?>
-            <div class="champion-banner">
-                <h3><i class="fa-solid fa-trophy"></i> Tournament Champion <i class="fa-solid fa-trophy"></i></h3>
-                <h1><?php echo htmlspecialchars($champion_name); ?></h1>
-            </div>
-        <?php endif; ?>
 
         <?php if (!empty($db_bracket) && $total_rounds > 0): ?>
 
@@ -467,6 +595,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
             <script>
             const SQUAD_PLAYERS = <?php echo json_encode($squad_players, JSON_UNESCAPED_UNICODE); ?>;
+            const SQUAD_LOGOS = <?php echo json_encode($squad_logos, JSON_UNESCAPED_UNICODE); ?>;
 
             const BRACKET_DATA = {
                 totalRounds:     <?php echo $total_rounds; ?>,
@@ -513,15 +642,25 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
                         const cls1 = !t1 ? 'tbd' : winner === 'team1' ? 'winner' : '';
                         const cls2 = !t2 ? 'tbd' : winner === 'team2' ? 'winner' : '';
+                        
+                        // FETCH LOGOS FOR BRACKET
+                        const logo1 = (t1 && SQUAD_LOGOS[t1]) ? 'uploads/squads/' + SQUAD_LOGOS[t1] : 'uploads/squads/default_logo.png';
+                        const logo2 = (t2 && SQUAD_LOGOS[t2]) ? 'uploads/squads/' + SQUAD_LOGOS[t2] : 'uploads/squads/default_logo.png';
 
                         html += `<div class="match-slot" id="slot-${r}-${m}">
                             <div class="matchup" onclick="openMatchModal(${r}, ${m})">
                                 <div class="team-row ${cls1}">
-                                    <span class="team-name">${t1 ? escHtml(t1) : 'TBD'}</span>
+                                    <div class="team-identity">
+                                        ${t1 ? `<img src="${logo1}" class="bracket-logo" onerror="this.onerror=null; this.src='uploads/squads/default_logo.png';">` : ''}
+                                        <span class="team-name">${t1 ? escHtml(t1) : 'TBD'}</span>
+                                    </div>
                                     <span class="score">${s1}</span>
                                 </div>
                                 <div class="team-row ${cls2}">
-                                    <span class="team-name">${t2 ? escHtml(t2) : 'BYE / TBD'}</span>
+                                    <div class="team-identity">
+                                        ${t2 ? `<img src="${logo2}" class="bracket-logo" onerror="this.onerror=null; this.src='uploads/squads/default_logo.png';">` : ''}
+                                        <span class="team-name">${t2 ? escHtml(t2) : 'BYE / TBD'}</span>
+                                    </div>
                                     <span class="score">${s2}</span>
                                 </div>
                             </div>
@@ -535,6 +674,8 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
                 // ── Champion column ──
                 if (champion) {
+                    const champLogo = SQUAD_LOGOS[champion] ? 'uploads/squads/' + SQUAD_LOGOS[champion] : 'uploads/squads/default_logo.png';
+                    
                     html += `
                     <div class="round-pair">
                         <div class="champ-connector" id="champ-conn-left"><svg id="svg-champ-left"></svg></div>
@@ -543,7 +684,7 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                             <div class="matches-col" id="matches-champ" style="justify-content:center;align-items:center;">
                                 <div class="match-slot" id="slot-champ">
                                     <div class="champion-card">
-                                        <div class=\"trophy\"><i class=\"fa-solid fa-trophy\"></i></div>
+                                        <img src="${champLogo}" class="champ-bracket-logo" onerror="this.onerror=null; this.src='uploads/squads/default_logo.png';">
                                         <div class="champ-name">${escHtml(champion)}</div>
                                         <div class="champ-label">Winner</div>
                                     </div>
@@ -658,6 +799,16 @@ for ($r = 1; $r <= $total_rounds; $r++) {
                 document.getElementById('modalScore1').textContent = (match.score1 !== null && match.score1 !== '') ? match.score1 : '-';
                 document.getElementById('modalScore2').textContent = (match.score2 !== null && match.score2 !== '') ? match.score2 : '-';
 
+                // SET LOGOS (With Safety Checks)
+                const logo1 = (match.team1 && SQUAD_LOGOS[match.team1]) ? 'uploads/squads/' + SQUAD_LOGOS[match.team1] : 'uploads/squads/default_logo.png';
+                const logo2 = (match.team2 && SQUAD_LOGOS[match.team2]) ? 'uploads/squads/' + SQUAD_LOGOS[match.team2] : 'uploads/squads/default_logo.png';
+                
+                const img1 = document.getElementById('modalLogo1');
+                const img2 = document.getElementById('modalLogo2');
+                
+                if (img1) img1.src = logo1;
+                if (img2) img2.src = logo2;
+
                 renderPlayers(match.team1, 'modalPlayers1');
                 renderPlayers(match.team2, 'modalPlayers2');
 
@@ -733,19 +884,24 @@ for ($r = 1; $r <= $total_rounds; $r++) {
 
 </div>
 
-<!-- Match Detail Modal -->
 <div class="modal-overlay" id="matchModal" onclick="closeModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
         <button class="modal-close" onclick="closeModal(event)">&times;</button>
         <div class="match-status" id="modalStatus">STATUS</div>
         <div class="vs-container">
             <div class="team-block">
+                <img id="modalLogo1" src="" alt="Team 1 Logo" style="width: 70px; height: 70px; border-radius: 8px; object-fit: cover; border: 2px solid var(--border-accent); margin-bottom: 10px; background: rgba(0,0,0,0.3);">
+                
                 <h3 id="modalTeam1">Team 1</h3>
                 <div class="score" id="modalScore1" style="font-size:32px;margin-top:5px;color:var(--text-primary);">0</div>
                 <ul class="player-list" id="modalPlayers1"></ul>
             </div>
+            
             <div class="vs-badge">VS</div>
+            
             <div class="team-block">
+                <img id="modalLogo2" src="" alt="Team 2 Logo" style="width: 70px; height: 70px; border-radius: 8px; object-fit: cover; border: 2px solid var(--border-accent); margin-bottom: 10px; background: rgba(0,0,0,0.3);">
+                
                 <h3 id="modalTeam2">Team 2</h3>
                 <div class="score" id="modalScore2" style="font-size:32px;margin-top:5px;color:var(--text-primary);">0</div>
                 <ul class="player-list" id="modalPlayers2"></ul>
@@ -755,8 +911,52 @@ for ($r = 1; $r <= $total_rounds; $r++) {
     </div>
 </div>
 
+<script>
+    // Avatar dropdown
+    const menu = document.getElementById('userMenu');
+    const btn  = document.getElementById('avatarBtn');
+    if (btn) {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menu.classList.toggle('open');
+        });
+        document.addEventListener('click', () => menu.classList.remove('open'));
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const alert = document.querySelector('.alert');
+        if (alert) {
+            setTimeout(() => {
+                alert.style.transition = 'opacity 0.5s';
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 500);
+            }, 3000);
+        }
+    });
+</script>
+
 <footer style="text-align:center;padding:24px;border-top:1px solid #1e2a38;color:#3d5468;font-size:13px;font-weight:500;background:#0f1318;margin-top:auto;flex-shrink:0;">
     &copy; 2026 <span style="color:#00c2cb;font-weight:700;font-family:'Rajdhani',sans-serif;letter-spacing:1px;">DiffCheck</span>. All rights reserved.
 </footer>
+
+<div id="signout-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div class="modal-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+        <div class="modal-title">Sign Out</div>
+        <div class="modal-text">
+            Are you sure you want to sign out?<br>
+            <span style="color: var(--text-muted); font-size: 12px;">Your session will be ended and you'll be redirected to the homepage.</span>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('signout-modal').classList.remove('active')">
+                <i class="fa-solid fa-xmark"></i> Cancel
+            </button>
+            <a href="logout.php" class="btn-modal-confirm">
+                <i class="fa-solid fa-right-from-bracket"></i> Sign Out
+            </a>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>

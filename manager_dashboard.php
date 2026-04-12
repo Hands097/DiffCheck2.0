@@ -32,8 +32,11 @@ if (isset($_POST['update_profile'])) {
 
 // --- LOGIC: Add New Player ---
 if (isset($_POST['add_player'])) {
-    $name = mysqli_real_escape_string($conn, $_POST['player_name']);
-    $ign  = mysqli_real_escape_string($conn, $_POST['ign']);
+    $first_name = mysqli_real_escape_string($conn, trim($_POST['first_name']));
+    $last_name  = mysqli_real_escape_string($conn, trim($_POST['last_name']));
+    $name       = $first_name . ' ' . $last_name;
+
+    $ign  = mysqli_real_escape_string($conn, trim($_POST['ign']));
     $game = mysqli_real_escape_string($conn, $_POST['game']);
     $role = mysqli_real_escape_string($conn, $_POST['role']);
 
@@ -84,7 +87,20 @@ if (isset($_POST['create_squad'])) {
         $_SESSION['system_message'] = "Error: You must select exactly 5 Main players.";
         $_SESSION['msg_type'] = "error";
     } else {
-        mysqli_query($conn, "INSERT INTO squads (manager_id, name, game, status) VALUES ('$user_id', '$squad_name', '$squad_game', 'active')");
+        // Handle Logo Upload
+        $logo_filename = 'default_logo.png';
+        if (isset($_FILES['squad_logo']) && $_FILES['squad_logo']['error'] === UPLOAD_ERR_OK) {
+            $allowed_types = ['image/jpeg', 'image/png', 'image/jpg'];
+            if (in_array($_FILES['squad_logo']['type'], $allowed_types)) {
+                $ext = pathinfo($_FILES['squad_logo']['name'], PATHINFO_EXTENSION);
+                $logo_filename = uniqid('squad_') . '.' . $ext;
+                $upload_dir = 'uploads/squads/';
+                if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+                move_uploaded_file($_FILES['squad_logo']['tmp_name'], $upload_dir . $logo_filename);
+            }
+        }
+
+        mysqli_query($conn, "INSERT INTO squads (manager_id, name, game, logo, status) VALUES ('$user_id', '$squad_name', '$squad_game', '$logo_filename', 'active')");
         $new_squad_id = mysqli_insert_id($conn);
         foreach ($mains as $p_id) { $p_id = (int)$p_id; mysqli_query($conn, "INSERT INTO squad_members (squad_id, player_id, member_type) VALUES ('$new_squad_id', '$p_id', 'main')"); }
         foreach ($subs  as $p_id) { $p_id = (int)$p_id; mysqli_query($conn, "INSERT INTO squad_members (squad_id, player_id, member_type) VALUES ('$new_squad_id', '$p_id', 'sub')"); }
@@ -128,6 +144,17 @@ $registrations_query = mysqli_query($conn, "
     JOIN tournaments t ON r.tournament_id = t.id
     WHERE r.manager_id='$user_id'
     ORDER BY r.id DESC
+");
+
+$warnings_query = mysqli_query($conn, "
+    SELECT ta.action_type, ta.reason, ta.created_at,
+           s.name as squad_name,
+           t.name as tournament_name
+    FROM team_actions ta
+    JOIN squads s ON ta.team_id = s.id
+    LEFT JOIN tournaments t ON ta.tournament_id = t.id
+    WHERE s.manager_id = '$user_id'
+    ORDER BY ta.created_at DESC
 ");
 
 $total_players          = mysqli_num_rows($active_players);
@@ -269,6 +296,7 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
         .badge-active  { background: rgba(0,194,203,0.1); color: var(--teal); border: 1px solid rgba(0,194,203,0.3); }
         .badge-pending { background: rgba(243,156,18,0.1); color: var(--orange); border: 1px solid rgba(243,156,18,0.3); }
         .badge-locked  { background: rgba(0,194,203,0.08); color: var(--teal-dim); border: 1px solid rgba(0,194,203,0.2); }
+        .badge-dq      { background: rgba(255,71,87,0.1); color: var(--red); border: 1px solid rgba(255,71,87,0.3); }
 
         .action-cell { display: flex; gap: 8px; align-items: center; }
         .btn-action { padding: 6px 12px; border: 1px solid var(--border-accent); border-radius: 4px; font-weight: 600; cursor: pointer; transition: 0.2s; font-size: 12px; font-family: 'Exo 2', sans-serif; background: transparent; color: var(--text-secondary); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
@@ -311,11 +339,11 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
 
 <aside class="sidebar">
     <div class="sidebar-header">
-        <a href="manager_dashboard.php" style="display:block">
+        <a href="organizer_dashboard.php" style="display:block">
             <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" style="width:130px; object-fit:contain;">
         </a>
         <div class="brand-subtitle">Tournament System</div>
-        <div class="role-badge"><i class="fa-solid fa-clipboard-user"></i> MANAGER</div>
+        <div class="role-badge"><i class="fa-solid fa-sitemap"></i> ORGANIZER</div>
     </div>
 
     <nav class="sidebar-nav">
@@ -324,6 +352,7 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
         <a class="nav-item active" onclick="switchTab('tab-squads', this)"><i class="fa-solid fa-shield"></i> My Squads</a>
         <a class="nav-item" onclick="switchTab('tab-players', this)"><i class="fa-solid fa-user-ninja"></i> Player Roster</a>
         <a class="nav-item" onclick="switchTab('tab-registrations', this)"><i class="fa-solid fa-ticket"></i> Registered Tournaments</a>
+        <a class="nav-item" onclick="switchTab('tab-warnings', this)"><i class="fa-solid fa-triangle-exclamation"></i> Warnings & DQ</a>
         <a class="nav-item" onclick="switchTab('tab-archive', this)"><i class="fa-solid fa-box-archive"></i> Inactive</a>
 
         <div class="nav-category">Tournaments</div>
@@ -356,7 +385,6 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
             <?php unset($_SESSION['system_message']); unset($_SESSION['msg_type']); ?>
         <?php endif; ?>
 
-        <!-- STATISTICS TAB -->
         <div id="tab-stats" class="tab-content">
             <div class="stats-grid">
                 <div class="stat-card" style="--accent-color: var(--teal);">
@@ -375,14 +403,14 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
                     <i class="fa-solid fa-box-archive stat-icon"></i>
                     <div class="stat-info"><h3><?php echo $total_inactive_players; ?></h3><p>Inactive Players</p></div>
                 </div>
-            </div>
-                <div class="stat-card" style="--accent-color: #f1c40f;">
+                <div class="stat-card" style="--accent-color: #f1c40f; margin-bottom: 24px;">
                     <i class="fa-solid fa-trophy stat-icon"></i>
                     <div class="stat-info">
                         <h3><?php echo $tournaments_won; ?></h3>
                         <p>Tournaments Won</p>
                     </div>
-                </div>            
+                </div>              
+            </div>
 
             <div class="charts-grid">
                 <div class="chart-panel">
@@ -418,16 +446,19 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
             </div>
         </div>
 
-        <!-- SQUADS TAB -->
         <div id="tab-squads" class="tab-content active">
             <div class="grid-2">
                 <div class="panel">
                     <div class="panel-head"><i class="fa-solid fa-plus"></i> Forge a New Squad</div>
                     <div class="panel-body">
-                        <form method="POST" action="" onsubmit="return validateSquadForm()">
+                        <form method="POST" action="" enctype="multipart/form-data" onsubmit="return validateSquadForm()">
                             <div class="form-group">
                                 <label class="form-label">Squad Name (Max 15 chars)</label>
                                 <input type="text" name="squad_name" class="form-control" maxlength="15" required>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Squad Logo (Optional)</label>
+                                <input type="file" name="squad_logo" class="form-control" accept="image/png, image/jpeg, image/jpg" style="padding: 9px 15px; background: rgba(0,0,0,0.3);">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Select Game</label>
@@ -483,7 +514,8 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
                                                     <input type='hidden' name='item_id' value='<?php echo $sq['id']; ?>'>
                                                     <input type='hidden' name='type' value='squad'>
                                                     <input type='hidden' name='new_status' value='inactive'>
-                                                    <button type='submit' name='change_status' class="btn-action btn-danger"><i class="fa-solid fa-box-archive"></i> Archive</button>
+                                                    <button type='submit' name='change_status' class="btn-action btn-danger"><i class="fa-solid fa-box-archive"></i> Inactive</button>
+                                                </form>
                                             </div>
                                         </td>
                                     </tr>
@@ -498,16 +530,21 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
             </div>
         </div>
 
-        <!-- PLAYERS TAB -->
         <div id="tab-players" class="tab-content">
             <div class="grid-2">
                 <div class="panel">
                     <div class="panel-head"><i class="fa-solid fa-user-plus"></i> Draft New Player</div>
                     <div class="panel-body">
                         <form method="POST">
-                            <div class="form-group">
-                                <label class="form-label">Real Name (Max 20 chars)</label>
-                                <input type="text" name="player_name" class="form-control" maxlength="20" required>
+                            <div class="form-group" style="display: flex; gap: 15px;">
+                                <div style="flex: 1;">
+                                    <label class="form-label">First Name</label>
+                                    <input type="text" name="first_name" class="form-control" maxlength="20" required>
+                                </div>
+                                <div style="flex: 1;">
+                                    <label class="form-label">Last Name</label>
+                                    <input type="text" name="last_name" class="form-control" maxlength="20" required>
+                                </div>
                             </div>
                             <div class="form-group">
                                 <label class="form-label">In-Game Name (Max 15 chars)</label>
@@ -578,7 +615,6 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
             </div>
         </div>
 
-        <!-- REGISTRATIONS TAB -->
         <div id="tab-registrations" class="tab-content">
             <div class="panel" style="max-width: 100%;">
                 <div class="panel-head"><i class="fa-solid fa-ticket"></i> Tournament Registrations</div>
@@ -603,9 +639,9 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
                                             <?php if ($r['t_status'] === 'pending'): ?>
                                                 <form method="POST" style="display:inline;" id="cancel-reg-form">
                                                     <input type="hidden" name="reg_id" value="<?php echo $r['reg_id']; ?>">
-                                                        <button type="button" class="btn-action btn-danger" onclick="document.getElementById('cancel-reg-modal').classList.add('active')">
-                                                            <i class="fa-solid fa-xmark"></i> Cancel Registration
-                                                        </button>
+                                                    <button type="button" class="btn-action btn-danger" onclick="document.getElementById('cancel-reg-modal').classList.add('active')">
+                                                        <i class="fa-solid fa-xmark"></i> Cancel Registration
+                                                    </button>
                                                 </form>
                                             <?php else: ?>
                                                 <span style="font-size: 11px; color: var(--text-muted); font-style: italic;"><i class="fa-solid fa-lock"></i> Cannot back out</span>
@@ -623,7 +659,42 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
             </div>
         </div>
 
-        <!-- ARCHIVE TAB -->
+        <div id="tab-warnings" class="tab-content">
+            <div class="panel" style="max-width: 100%;">
+                <div class="panel-head"><i class="fa-solid fa-triangle-exclamation"></i> Warnings & Disqualifications</div>
+                <div class="panel-body" style="padding: 0;">
+                    <div class="table-responsive">
+                        <table>
+                            <thead><tr><th>Date Issued</th><th>Squad</th><th>Tournament</th><th>Action Type</th><th>Reason</th></tr></thead>
+                            <tbody>
+                                <?php if (mysqli_num_rows($warnings_query) > 0): ?>
+                                    <?php while ($w = mysqli_fetch_assoc($warnings_query)): ?>
+                                    <tr>
+                                        <td style="color: var(--text-secondary); font-size: 12px;"><?php echo date("M d, Y h:i A", strtotime($w['created_at'])); ?></td>
+                                        <td style="font-weight: 700; color: #fff;"><?php echo htmlspecialchars($w['squad_name']); ?></td>
+                                        <td><?php echo htmlspecialchars($w['tournament_name'] ?? 'N/A'); ?></td>
+                                        <td>
+                                            <?php if (strtolower($w['action_type']) === 'warning'): ?>
+                                                <span class="badge badge-pending">WARNING</span>
+                                            <?php elseif (strtolower($w['action_type']) === 'disqualified'): ?>
+                                                <span class="badge badge-dq" style="background: rgba(255,71,87,0.1); color: var(--red); border: 1px solid rgba(255,71,87,0.3);">DISQUALIFIED</span>
+                                            <?php else: ?>
+                                                <span class="badge badge-locked"><?php echo strtoupper(htmlspecialchars($w['action_type'])); ?></span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td style="max-width: 250px; word-wrap: break-word;"><?php echo htmlspecialchars($w['reason']); ?></td>
+                                    </tr>
+                                    <?php endwhile; ?>
+                                <?php else: ?>
+                                    <tr><td colspan="5" style="text-align: center; color: var(--text-muted); padding: 40px;">No warnings or disqualifications recorded. Good job!</td></tr>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div id="tab-archive" class="tab-content">
             <div class="grid-2">
                 <div class="panel">
@@ -686,7 +757,6 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
             </div>
         </div>
 
-        <!-- PROFILE TAB -->
         <div id="tab-profile" class="tab-content">
             <div class="grid-2">
                 <div class="panel">
@@ -785,6 +855,7 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
             'tab-squads':        'Squad Management',
             'tab-players':       'Player Roster',
             'tab-registrations': 'Tournament Registrations',
+            'tab-warnings':      'Warnings & Disqualifications',
             'tab-archive':       'Archive & Restoration',
             'tab-profile':       'Account Settings'
         };
@@ -826,15 +897,15 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
     }
 
     window.onload = function() {
-    filterPlayersByGame();
-    filterRolesForAddPlayer();
-    const urlParams = new URLSearchParams(window.location.search);
-    const tabParam = urlParams.get('tab');
-    if (tabParam && document.getElementById(tabParam)) {
-        const matchingNav = document.querySelector(`[onclick*="'${tabParam}'"]`);
-        switchTab(tabParam, matchingNav);
-    }
-};
+        filterPlayersByGame();
+        filterRolesForAddPlayer();
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        if (tabParam && document.getElementById(tabParam)) {
+            const matchingNav = document.querySelector(`[onclick*="'${tabParam}'"]`);
+            switchTab(tabParam, matchingNav);
+        }
+    };
 </script>
 
 <div id="signout-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
@@ -872,7 +943,6 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
-<!-- Cancel Registration Modal -->
 <div id="cancel-reg-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
     <div class="modal-box">
         <div class="modal-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
@@ -886,7 +956,6 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
     </div>
 </div>
-
 
 </body>
 </html>

@@ -229,6 +229,7 @@ $result = mysqli_query($conn, $sql);
             margin: 0 auto;
             padding: 32px 24px;
             flex: 1;
+            width: 100%;
         }
 
         .page-heading {
@@ -568,6 +569,14 @@ $result = mysqli_query($conn, $sql);
         }
         .empty-state .icon { font-size: 40px; margin-bottom: 14px; }
 
+        /* ── ALERTS ── */
+        .alert {
+            padding: 15px 20px; border-radius: 6px; font-weight: 600; font-size: 14px; 
+            text-align: center; border: 1px solid transparent; width: 100%; margin-bottom: 20px;
+        }
+        .alert-success { background: rgba(0,194,160,0.1); color: var(--green); border-color: rgba(0,194,160,0.3); }
+        .alert-error   { background: rgba(224,85,85,0.1); color: var(--red);   border-color: rgba(224,85,85,0.3); }
+
         @media (max-width: 768px) {
             .filter-body { grid-template-columns: 1fr; }
             .topbar { padding: 0 16px; }
@@ -715,6 +724,13 @@ $result = mysqli_query($conn, $sql);
 </header>
 
 <div class="page">
+
+    <?php if (isset($_SESSION['system_message'])): ?>
+        <div class="alert alert-<?php echo isset($_SESSION['msg_type']) ? $_SESSION['msg_type'] : 'success'; ?>">
+            <i class="fa-solid fa-circle-info"></i> <?php echo htmlspecialchars($_SESSION['system_message']); ?>
+        </div>
+        <?php unset($_SESSION['system_message']); unset($_SESSION['msg_type']); ?>
+    <?php endif; ?>
 
     <div class="page-heading">
         <h1>Browse <span>Tournaments</span></h1>
@@ -864,7 +880,9 @@ $result = mysqli_query($conn, $sql);
         <?php endif; ?>
     </div>
 
-</div> <script>
+</div> 
+
+<script>
     // Avatar dropdown
     const menu = document.getElementById('userMenu');
     const btn  = document.getElementById('avatarBtn');
@@ -922,13 +940,27 @@ $result = mysqli_query($conn, $sql);
             }
         });
     }
+
+    // Auto-dismiss alerts
+    document.addEventListener('DOMContentLoaded', function() {
+        const alert = document.querySelector('.alert');
+        if (alert) {
+            setTimeout(() => {
+                alert.style.transition = 'opacity 0.5s';
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 500);
+            }, 3000);
+        }
+        if (document.querySelector('.alert-success')) {
+            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
+        }
+    });
 </script>
 
 <footer style="text-align: center; padding: 24px; border-top: 1px solid #1e2a38; color: #3d5468; font-size: 13px; font-weight: 500; background: #0f1318; margin-top: auto; flex-shrink: 0;">
     &copy; 2026 <span style="color: #00c2cb; font-weight: 700; font-family: 'Rajdhani', sans-serif; letter-spacing: 1px;">DiffCheck</span>. All rights reserved.
 </footer>
 
-<!-- modal page -->
 <div id="signout-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
     <div class="modal-box">
         <div class="modal-icon"><i class="fa-solid fa-right-from-bracket"></i></div>

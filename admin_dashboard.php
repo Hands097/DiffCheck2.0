@@ -242,9 +242,7 @@ $avatar_initials = strtoupper(substr($admin_data['first_name'], 0, 1) . substr($
 
 <aside class="sidebar">
     <div class="sidebar-header">
-        <a href="admin_dashboard.php" style="display:block">
-            <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" style="width:130px; object-fit:contain;">
-        </a>
+        <div class="brand-title">DIFF<span>CHECK</span></div>
         <div class="brand-subtitle">System Administration</div>
         <div class="role-badge"><i class="fa-solid fa-shield-halved"></i> SUPER ADMIN</div>
     </div>
@@ -343,13 +341,13 @@ $avatar_initials = strtoupper(substr($admin_data['first_name'], 0, 1) . substr($
                                     <td>
                                         <?php if ($u['id'] !== $_SESSION['user_id']): ?>
                                             <div style="display: flex; gap: 8px;">
-                                                <form method="POST" id="archive-user-form-<?php echo $u['id']; ?>">
+                                                <form method="POST" onsubmit="return confirm('Archive this user?');">
                                                     <input type="hidden" name="user_id" value="<?php echo $u['id']; ?>">
-                                                    <button type="button" name="archive_user" class="btn-action btn-archive" onclick="document.getElementById('archive-user-modal-<?php echo $u['id']; ?>').classList.add('active')"><i class="fa-solid fa-box-archive"></i> Archive</button>
+                                                    <button type="submit" name="archive_user" class="btn-action btn-archive"><i class="fa-solid fa-box-archive"></i> Archive</button>
                                                 </form>
-                                                <form method="POST" id="wipe-user-form-<?php echo $u['id']; ?>">
+                                                <form method="POST" onsubmit="return confirm('PERMANENTLY wipe all data for <?php echo $full_name; ?>?');">
                                                     <input type="hidden" name="user_id" value="<?php echo $u['id']; ?>">
-                                                    <button type="button" name="delete_user" class="btn-action btn-delete" onclick="document.getElementById('wipe-user-modal-<?php echo $u['id']; ?>').classList.add('active')"><i class="fa-solid fa-skull"></i> Wipe Data</button>
+                                                    <button type="submit" name="delete_user" class="btn-action btn-delete"><i class="fa-solid fa-skull"></i> Wipe Data</button>
                                                 </form>
                                             </div>
                                         <?php else: ?>
@@ -384,9 +382,9 @@ $avatar_initials = strtoupper(substr($admin_data['first_name'], 0, 1) . substr($
                                         <?php if ($at['status'] === 'completed') echo '<span class="badge" style="background:#5a6a78; color:#fff;">COMPLETED</span>'; ?>
                                     </td>
                                     <td>
-                                        <form method="POST" id="force-archive-form-<?php echo $at['id']; ?>">
+                                        <form method="POST" onsubmit="return confirm('Force-archive this tournament?');">
                                             <input type="hidden" name="tournament_id" value="<?php echo $at['id']; ?>">
-                                            <button type="button" class="btn-action btn-archive" onclick="document.getElementById('force-archive-modal-<?php echo $at['id']; ?>').classList.add('active')"><i class="fa-solid fa-box-archive"></i> Archive</button>
+                                            <button type="submit" name="admin_archive_tournament" class="btn-action btn-archive"><i class="fa-solid fa-box-archive"></i> Archive</button>
                                         </form>
                                     </td>
                                 </tr>
@@ -423,9 +421,9 @@ $avatar_initials = strtoupper(substr($admin_data['first_name'], 0, 1) . substr($
                                                 <input type="hidden" name="user_id" value="<?php echo $au['id']; ?>">
                                                 <button type="submit" name="restore_user" class="btn-action btn-restore"><i class="fa-solid fa-arrow-rotate-left"></i> Restore</button>
                                             </form>
-                                            <form method="POST" id="erase-user-form-<?php echo $au['id']; ?>">
+                                            <form method="POST" onsubmit="return confirm('Permanently erase this user?');">
                                                 <input type="hidden" name="user_id" value="<?php echo $au['id']; ?>">
-                                                <button type="button" class="btn-action btn-delete" onclick="document.getElementById('erase-user-modal-<?php echo $au['id']; ?>').classList.add('active')"><i class="fa-solid fa-trash-can"></i></button>
+                                                <button type="submit" name="delete_user" class="btn-action btn-delete"><i class="fa-solid fa-trash-can"></i></button>
                                             </form>
                                         </div>
                                     </td>
@@ -453,9 +451,9 @@ $avatar_initials = strtoupper(substr($admin_data['first_name'], 0, 1) . substr($
                                     <td><span style="color: var(--teal); font-weight: 600;"><i class="fa-solid fa-user-shield"></i> <?php echo htmlspecialchars($arc['organizer_name']); ?></span></td>
                                     <td><?php echo date("M j, Y", strtotime($arc['created_at'])); ?></td>
                                     <td>
-                                        <form method="POST" style="display:inline;" id="restore-tourn-form-<?php echo $arc['id']; ?>">
+                                        <form method="POST" style="display:inline;" onsubmit="return confirm('Restore this tournament?');">
                                             <input type="hidden" name="tournament_id" value="<?php echo $arc['id']; ?>">
-                                            <button type="button" class="btn-action btn-restore" onclick="document.getElementById('restore-tourn-modal-<?php echo $arc['id']; ?>').classList.add('active')"><i class="fa-solid fa-arrow-rotate-left"></i> Restore</button>
+                                            <button type="submit" name="admin_restore_tournament" class="btn-action btn-restore"><i class="fa-solid fa-arrow-rotate-left"></i> Restore</button>
                                         </form>
                                     </td>
                                 </tr>
@@ -525,117 +523,6 @@ $avatar_initials = strtoupper(substr($admin_data['first_name'], 0, 1) . substr($
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const alert = document.querySelector('.alert');
-    if (alert) {
-        setTimeout(() => {
-            alert.style.transition = 'opacity 0.5s';
-            alert.style.opacity = '0';
-            setTimeout(() => alert.remove(), 500);
-        }, 3000);
-    }
-    if (document.querySelector('.alert-success')) {
-        document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-    }
-});
-</script>
-
-<!-- ARCHIVE USER MODALS -->
-<?php
-mysqli_data_seek($users_query, 0);
-while ($u = mysqli_fetch_assoc($users_query)):
-    if ($u['id'] === $_SESSION['user_id']) continue;
-    $full_name = htmlspecialchars($u['first_name'] . ' ' . $u['last_name']);
-?>
-<div id="archive-user-modal-<?php echo $u['id']; ?>" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="modal-box">
-        <div class="modal-icon"><i class="fa-solid fa-box-archive"></i></div>
-        <div class="modal-title">Archive User</div>
-        <div class="modal-text">Archive <strong><?php echo $full_name; ?></strong>?<br>
-            <span style="color:var(--text-muted); font-size:12px;">They will no longer be able to log in.</span>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-modal-cancel" onclick="document.getElementById('archive-user-modal-<?php echo $u['id']; ?>').classList.remove('active')">Cancel</button>
-            <button class="btn-modal-confirm" onclick="document.getElementById('archive-user-form-<?php echo $u['id']; ?>').querySelector('[name=archive_user]').click(); document.getElementById('archive-user-form-<?php echo $u['id']; ?>').submit()"><i class="fa-solid fa-box-archive"></i> Archive</button>
-        </div>
-    </div>
-</div>
-
-<div id="wipe-user-modal-<?php echo $u['id']; ?>" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="modal-box">
-        <div class="modal-icon" style="background:rgba(255,71,87,0.1); border-color:rgba(255,71,87,0.3); color:#ff4757;"><i class="fa-solid fa-skull"></i></div>
-        <div class="modal-title" style="color:#ff4757;">Wipe Data</div>
-        <div class="modal-text">Permanently wipe ALL data for <strong><?php echo $full_name; ?></strong>?<br>
-            <span style="color:var(--text-muted); font-size:12px;">This cannot be undone.</span>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-modal-cancel" onclick="document.getElementById('wipe-user-modal-<?php echo $u['id']; ?>').classList.remove('active')">Cancel</button>
-            <button class="btn-modal-confirm" style="background:#ff4757;" onclick="document.getElementById('wipe-user-form-<?php echo $u['id']; ?>').submit()"><i class="fa-solid fa-skull"></i> Wipe</button>
-        </div>
-    </div>
-</div>
-<?php endwhile; ?>
-
-<!-- FORCE ARCHIVE TOURNAMENT MODALS -->
-<?php
-mysqli_data_seek($active_tournaments_query, 0);
-while ($at = mysqli_fetch_assoc($active_tournaments_query)):
-?>
-<div id="force-archive-modal-<?php echo $at['id']; ?>" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="modal-box">
-        <div class="modal-icon"><i class="fa-solid fa-box-archive"></i></div>
-        <div class="modal-title">Force Archive</div>
-        <div class="modal-text">Force-archive <strong><?php echo htmlspecialchars($at['name']); ?></strong>?<br>
-            <span style="color:var(--text-muted); font-size:12px;">It will be moved to the archive tab.</span>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-modal-cancel" onclick="document.getElementById('force-archive-modal-<?php echo $at['id']; ?>').classList.remove('active')">Cancel</button>
-            <button class="btn-modal-confirm" onclick="document.getElementById('force-archive-form-<?php echo $at['id']; ?>').submit()"><i class="fa-solid fa-box-archive"></i> Archive</button>
-        </div>
-    </div>
-</div>
-<?php endwhile; ?>
-
-<!-- ERASE ARCHIVED USER MODALS -->
-<?php
-mysqli_data_seek($archived_users_query, 0);
-while ($au = mysqli_fetch_assoc($archived_users_query)):
-    $full_name = htmlspecialchars($au['first_name'] . ' ' . $au['last_name']);
-?>
-<div id="erase-user-modal-<?php echo $au['id']; ?>" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="modal-box">
-        <div class="modal-icon" style="background:rgba(255,71,87,0.1); border-color:rgba(255,71,87,0.3); color:#ff4757;"><i class="fa-solid fa-trash-can"></i></div>
-        <div class="modal-title" style="color:#ff4757;">Erase User</div>
-        <div class="modal-text">Permanently erase <strong><?php echo $full_name; ?></strong>?<br>
-            <span style="color:var(--text-muted); font-size:12px;">This cannot be undone.</span>
-        </div>
-        <div class="modal-actions">
-            <button class="btn-modal-cancel" onclick="document.getElementById('erase-user-modal-<?php echo $au['id']; ?>').classList.remove('active')">Cancel</button>
-            <button class="btn-modal-confirm" style="background:#ff4757;" onclick="document.getElementById('erase-user-form-<?php echo $au['id']; ?>').submit()"><i class="fa-solid fa-trash-can"></i> Erase</button>
-        </div>
-    </div>
-</div>
-<?php endwhile; ?>
-
-<!-- RESTORE ARCHIVED TOURNAMENT MODALS -->
-<?php
-mysqli_data_seek($archived_tournaments_query, 0);
-while ($arc = mysqli_fetch_assoc($archived_tournaments_query)):
-?>
-<div id="restore-tourn-modal-<?php echo $arc['id']; ?>" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
-    <div class="modal-box">
-        <div class="modal-icon"><i class="fa-solid fa-arrow-rotate-left"></i></div>
-        <div class="modal-title">Restore Tournament</div>
-        <div class="modal-text">Restore <strong><?php echo htmlspecialchars($arc['name']); ?></strong> back to active?</div>
-        <div class="modal-actions">
-            <button class="btn-modal-cancel" onclick="document.getElementById('restore-tourn-modal-<?php echo $arc['id']; ?>').classList.remove('active')">Cancel</button>
-            <button class="btn-modal-confirm" onclick="document.getElementById('restore-tourn-form-<?php echo $arc['id']; ?>').submit()"><i class="fa-solid fa-arrow-rotate-left"></i> Restore</button>
-        </div>
-    </div>
-</div>
-<?php endwhile; ?>
 
 </body>
 </html>
