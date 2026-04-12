@@ -575,7 +575,7 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
 
 <aside class="sidebar">
     <div class="sidebar-header">
-        <a href="organizer_dashboard.php" style="display:block; margin-bottom:10px;">
+        <a href="organizer_dashboard.php" style="display:block">
             <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" style="width:130px; object-fit:contain;">
         </a>
         <div class="brand-subtitle">Tournament System</div>

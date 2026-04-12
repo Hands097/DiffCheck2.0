@@ -311,7 +311,7 @@ $avatar_initials = strtoupper(substr($user_data['first_name'], 0, 1) . substr($u
 
 <aside class="sidebar">
     <div class="sidebar-header">
-        <a href="manager_dashboard.php" style="display:block; margin-bottom:10px;">
+        <a href="manager_dashboard.php" style="display:block">
             <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" style="width:130px; object-fit:contain;">
         </a>
         <div class="brand-subtitle">Tournament System</div>

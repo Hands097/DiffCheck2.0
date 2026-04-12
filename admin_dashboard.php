@@ -242,7 +242,7 @@ $avatar_initials = strtoupper(substr($admin_data['first_name'], 0, 1) . substr($
 
 <aside class="sidebar">
     <div class="sidebar-header">
-        <a href="admin_dashboard.php" style="display:block; margin-bottom:10px;">
+        <a href="admin_dashboard.php" style="display:block">
             <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo" style="width:130px; object-fit:contain;">
         </a>
         <div class="brand-subtitle">System Administration</div>
