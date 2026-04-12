@@ -131,7 +131,12 @@ if (isset($_POST['cancel_registration'])) {
 }
 
 // --- FETCH DATA ---
-$user_data        = mysqli_fetch_assoc(mysqli_query($conn, "SELECT first_name, last_name, created_at FROM users WHERE id='$user_id'"));
+$user_data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT first_name, last_name, created_at FROM users WHERE id='$user_id'"));
+if (!$user_data) {
+    session_destroy();
+    header("Location: login.php");
+    exit();
+}
 $active_players   = mysqli_query($conn, "SELECT * FROM players WHERE manager_id='$user_id' AND status='active' ORDER BY game, ign");
 $inactive_players = mysqli_query($conn, "SELECT * FROM players WHERE manager_id='$user_id' AND status='inactive'");
 $active_squads    = mysqli_query($conn, "SELECT * FROM squads WHERE manager_id='$user_id' AND status='active'");

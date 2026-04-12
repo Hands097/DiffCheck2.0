@@ -1,6 +1,7 @@
 <?php
 session_start();
 include('db.php');
+include('mailer.php');
 
 $error_msg = "";
 
@@ -29,24 +30,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if (mysqli_num_rows($check) > 0) {
             $error_msg = "An account with that email already exists.";
         } else {
+            $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            $expires_at = date('Y-m-d H:i:s', strtotime('+10 minutes'));
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-            $insert = mysqli_query($conn, "INSERT INTO users (first_name, last_name, email, password, role) 
-                VALUES ('$first_name', '$last_name', '$email', '$hashed_password', '$role')");
 
-            if ($insert) {
-                $_SESSION['user_id']    = mysqli_insert_id($conn);
-                $_SESSION['first_name'] = $first_name;
-                $_SESSION['last_name']  = $last_name;
-                $_SESSION['role']       = $role;
+            $form_data = json_encode([
+                'first_name' => $first_name,
+                'last_name'  => $last_name,
+                'password'   => $hashed_password,
+                'role'       => $role
+            ]);
 
-                if ($role === 'organizer') {
-                    header("Location: organizer_dashboard.php");
-                } else {
-                    header("Location: manager_dashboard.php");
-                }
+            mysqli_query($conn, "DELETE FROM otp_verifications WHERE email='$email'");
+            mysqli_query($conn, "INSERT INTO otp_verifications (email, otp, form_data, expires_at) 
+                VALUES ('$email', '$otp', '$form_data', '$expires_at')");
+
+            if (sendOTP($email, $otp)) {
+                $_SESSION['pending_email'] = $email;
+                header("Location: verify_otp.php");
                 exit();
             } else {
-                $error_msg = "Error registering account. Please try again.";
+                $error_msg = "Failed to send verification email. Please try again.";
             }
         }
     }

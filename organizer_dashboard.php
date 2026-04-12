@@ -278,7 +278,12 @@ if (isset($_POST['complete_tournament'])) {
 }
 
 // ── FETCH DATA ─────────────────────────────────────────────────────────────────
-$user_data          = mysqli_fetch_assoc(mysqli_query($conn, "SELECT first_name, last_name, created_at FROM users WHERE id='$user_id'"));
+$user_data = mysqli_fetch_assoc(mysqli_query($conn, "SELECT first_name, last_name, created_at FROM users WHERE id='$user_id'"));
+if (!$user_data) {
+    session_destroy();
+    header("Location: login.php");
+    exit();
+}
 $tournaments_query  = mysqli_query($conn, "SELECT * FROM tournaments WHERE organizer_id='$user_id' AND is_deleted=0 ORDER BY created_at DESC");
 $archived_query     = mysqli_query($conn, "SELECT * FROM tournaments WHERE organizer_id='$user_id' AND is_deleted=1 ORDER BY created_at DESC");
 

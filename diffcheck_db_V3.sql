@@ -362,6 +362,22 @@ CREATE TABLE IF NOT EXISTS team_actions (
     reason TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+-- for otp
+CREATE TABLE otp_verifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(255) NOT NULL,
+    otp VARCHAR(6) NOT NULL,
+    form_data TEXT NOT NULL,
+    expires_at DATETIME NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- makes a column to mark if the user is verified or not, and marks all existing users as verified
+ALTER TABLE users ADD COLUMN is_verified TINYINT(1) DEFAULT 0;
+UPDATE users SET is_verified = 1; -- marks all existing users as verified
+
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
