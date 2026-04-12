@@ -3,46 +3,30 @@ ini_set('session.save_path', 'C:/xampp/tmp');
 session_start();
 include('db.php');
 
-
-if (!isset($_SESSION['pending_email'])) {
-    die("Session lost. pending_email not found. Session data: " . print_r($_SESSION, true));
+if (!isset($_SESSION['reset_email'])) {
+    header("Location: forgot_password.php");
+    exit();
 }
 
-$email = $_SESSION['pending_email'];
+$email = $_SESSION['reset_email'];
 $error_msg = "";
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $entered_otp = trim($_POST['otp']);
     $escaped_email = mysqli_real_escape_string($conn, $email);
 
-        $result = mysqli_query($conn, "SELECT * FROM otp_verifications 
-            WHERE email='$escaped_email' AND otp='$entered_otp'");
+    $result = mysqli_query($conn, "SELECT * FROM otp_verifications 
+        WHERE email='$escaped_email' AND otp='$entered_otp'");
 
-if (mysqli_num_rows($result) > 0) {
-    $row = mysqli_fetch_assoc($result);
-    $data = json_decode($row['form_data'], true);
-
-    $insert = mysqli_query($conn, "INSERT INTO users (first_name, last_name, email, password, role, is_verified) 
-        VALUES ('{$data['first_name']}', '{$data['last_name']}', '$escaped_email', 
-                '{$data['password']}', '{$data['role']}', 1)");
-
-    if ($insert) {
-        $new_user_id = mysqli_insert_id($conn);
+    if (mysqli_num_rows($result) > 0) {
         mysqli_query($conn, "DELETE FROM otp_verifications WHERE email='$escaped_email'");
-        
-        $_SESSION['user_id']    = $new_user_id;
-        $_SESSION['first_name'] = $data['first_name'];
-        $_SESSION['role']       = $data['role'];
-        unset($_SESSION['pending_email']);
-
-        header("Location: " . ($data['role'] === 'organizer' ? "organizer_dashboard.php" : "manager_dashboard.php"));
+        $_SESSION['verified_reset_email'] = $email;
+        unset($_SESSION['reset_email']);
+        header("Location: reset_password.php");
         exit();
     } else {
-        die("Insert failed: " . mysqli_error($conn));
+        $error_msg = "Invalid or expired OTP. Please try again.";
     }
-} else {
-    $error_msg = "Invalid or expired OTP. Please try again.";
-}
 }
 ?>
 <!DOCTYPE html>
@@ -50,7 +34,7 @@ if (mysqli_num_rows($result) > 0) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verify OTP – DIFFCHECK</title>
+    <title>Verify Code – DIFFCHECK</title>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;600;700&family=Exo+2:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -108,7 +92,7 @@ if (mysqli_num_rows($result) > 0) {
 <div class="auth-wrapper">
     <div class="auth-card">
         <img src="pic/logoV4.png" alt="DiffCheck Logo">
-        <h2>Check Your Email</h2>
+        <h2>Enter Verification Code</h2>
         <p>We sent a 6-digit code to<br><span><?= htmlspecialchars($email) ?></span></p>
 
         <?php if (!empty($error_msg)): ?>
@@ -117,11 +101,11 @@ if (mysqli_num_rows($result) > 0) {
 
         <form method="POST">
             <input type="text" name="otp" class="otp-input" maxlength="6" placeholder="______" required autofocus>
-            <button type="submit" class="btn-submit">Verify & Create Account</button>
+            <button type="submit" class="btn-submit">Verify Code</button>
         </form>
 
         <div class="back-link">
-            <p>Wrong email? <a href="register.php">Go back</a></p>
+            <p>Wrong email? <a href="forgot_password.php">Go back</a></p>
         </div>
     </div>
 </div>

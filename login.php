@@ -1,3 +1,19 @@
+<?php if (isset($_GET['msg'])): ?>
+    <div id="successMsg" style="background:rgba(46,213,115,0.1); color:#2ed573; border:1px solid rgba(46,213,115,0.3);
+        padding:10px; border-radius:6px; margin-bottom:20px; text-align:center; font-size:13px; font-weight:600;">
+        <?= htmlspecialchars($_GET['msg']) ?>
+    </div>
+    <script>
+        setTimeout(function() {
+            const msg = document.getElementById('successMsg');
+            if (msg) {
+                msg.style.transition = 'opacity 0.8s ease';
+                msg.style.opacity = '0';
+                setTimeout(() => msg.remove(), 800);
+            }
+        }, 3000); // disappears after 3 seconds
+    </script>
+<?php endif; ?>
 <?php
 ob_start(); // Prevents "headers already sent" errors
 session_start();
@@ -172,11 +188,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
 
                     <button type="submit" class="btn-submit">Submit</button>
+                        <p style="text-align:center; margin-top:15px; font-size:13px;">
+                            <a href="forgot_password.php" style="color:var(--teal); text-decoration:none; font-weight:700;">
+                                Forgot Password?
+                            </a>
+                        </p>                    
                 </form>
             </div>
 
             <div class="auth-right">
-                <img src="pic/logoV4.png" alt="DiffCheck Logo" class="auth-image">
+                <img src="pic/DiffCheckLogoNoBG.png" alt="DiffCheck Logo" class="auth-image">
                 <p>Don't have an account yet? <br><br><a href="register.php">Register here</a></p>
             </div>
 

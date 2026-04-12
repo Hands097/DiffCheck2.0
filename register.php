@@ -1,4 +1,5 @@
 <?php
+ini_set('session.save_path', 'C:/xampp/tmp');
 session_start();
 include('db.php');
 include('mailer.php');
@@ -52,6 +53,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             } else {
                 $error_msg = "Failed to send verification email. Please try again.";
             }
+            $_SESSION['pending_email'] = $email;
+            echo "Session set: " . $_SESSION['pending_email']; // add this
+            die(); // add this            
         }
     }
 }
@@ -143,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     <div class="auth-card">
 
         <div class="auth-left">
-            <img src="pic/logoV4.png" alt="DiffCheck Logo" class="auth-image">
+            <img src="pic/DiffCheckLogoNoBG.png" alt="DiffCheck Logo" class="auth-image">
             <p>Already have an account? <br><a href="login.php">Login here</a></p>
         </div>
 
