@@ -1,11 +1,11 @@
 <?php
-ini_set('session.save_path', 'C:/xampp/tmp');
 session_start();
 include('db.php');
 
 
 if (!isset($_SESSION['pending_email'])) {
-    die("Session lost. pending_email not found. Session data: " . print_r($_SESSION, true));
+    header("Location: register.php");
+    exit();
 }
 
 $email = $_SESSION['pending_email'];
@@ -30,15 +30,16 @@ if (mysqli_num_rows($result) > 0) {
         $new_user_id = mysqli_insert_id($conn);
         mysqli_query($conn, "DELETE FROM otp_verifications WHERE email='$escaped_email'");
         
-        $_SESSION['user_id']    = $new_user_id;
-        $_SESSION['first_name'] = $data['first_name'];
-        $_SESSION['role']       = $data['role'];
+            $_SESSION['user_id']    = $new_user_id;
+            $_SESSION['first_name'] = $data['first_name'];
+            $_SESSION['last_name']  = $data['last_name'];
+            $_SESSION['role']       = $data['role'];
         unset($_SESSION['pending_email']);
 
         header("Location: " . ($data['role'] === 'organizer' ? "organizer_dashboard.php" : "manager_dashboard.php"));
         exit();
     } else {
-        die("Insert failed: " . mysqli_error($conn));
+        $error_msg = "Registration failed. Please try again.";
     }
 } else {
     $error_msg = "Invalid or expired OTP. Please try again.";

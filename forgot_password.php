@@ -1,5 +1,4 @@
 <?php
-ini_set('session.save_path', 'C:/xampp/tmp');
 session_start();
 include('db.php');
 include('mailer.php');
@@ -14,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     if (mysqli_num_rows($check) == 0) {
         $error_msg = "No account found with that email.";
     } else {
-        $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+        $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
         $expires_at = date('Y-m-d H:i:s', strtotime('+1 hour'));
 
         mysqli_query($conn, "DELETE FROM otp_verifications WHERE email='$email'");

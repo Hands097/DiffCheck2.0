@@ -499,15 +499,15 @@ while ($t = mysqli_fetch_assoc($hottest_query)) $hottest[] = $t;
         <?php else: ?>
             <div class="user-menu" id="userMenu">
                 <div class="user-avatar" id="avatarBtn">
-                    <?php echo strtoupper(substr($_SESSION['username'] ?? 'U', 0, 2)); ?>
+                    <?php echo strtoupper(substr($_SESSION['first_name'] ?? 'U', 0, 1) . substr($_SESSION['last_name'] ?? '', 0, 1)); ?>
                 </div>
                 <div class="user-dropdown">
                     <div class="dropdown-header">
-                        <div class="dropdown-name"><?php echo htmlspecialchars($_SESSION['username'] ?? ''); ?></div>
+                        <div class="dropdown-name"><?php echo htmlspecialchars(($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? '')); ?></div>
                         <div class="dropdown-role">Coach / Manager</div>
                     </div>
                     <div class="dropdown-items">
-                        <a href="<?php echo $_SESSION['role'] === 'manager' ? 'manager_dashboard.php' : 'organizer_dashboard.php'; ?>" class="dropdown-item">
+                        <a href="<?php echo ($_SESSION['role'] ?? '') === 'manager' ? 'manager_dashboard.php' : 'organizer_dashboard.php'; ?>" class="dropdown-item">
                         <span class="di-icon"><i class="fa-solid fa-chart-line"></i></span> Dashboard
                         </a>
                         <div class="dropdown-divider"></div>

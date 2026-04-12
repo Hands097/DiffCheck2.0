@@ -1,5 +1,4 @@
 <?php
-ini_set('session.save_path', 'C:/xampp/tmp');
 session_start();
 include('db.php');
 
@@ -15,8 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $entered_otp = trim($_POST['otp']);
     $escaped_email = mysqli_real_escape_string($conn, $email);
 
-    $result = mysqli_query($conn, "SELECT * FROM otp_verifications 
-        WHERE email='$escaped_email' AND otp='$entered_otp'");
+        $now = date('Y-m-d H:i:s');
+        $result = mysqli_query($conn, "SELECT * FROM otp_verifications 
+            WHERE email='$escaped_email' AND otp='$entered_otp' AND expires_at > '$now'");
 
     if (mysqli_num_rows($result) > 0) {
         mysqli_query($conn, "DELETE FROM otp_verifications WHERE email='$escaped_email'");

@@ -58,7 +58,7 @@ while ($row = mysqli_fetch_assoc($matches_query)) {
 $squad_players = [];
 try {
     $players_sql = "
-        SELECT r.squad_name, p.in_game_name AS player_name 
+        SELECT r.squad_name, p.ign AS player_name 
         FROM registrations r
         JOIN squads s ON r.squad_name = s.name AND r.manager_id = s.manager_id
         JOIN squad_members sm ON s.id = sm.squad_id

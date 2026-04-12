@@ -44,7 +44,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $user = mysqli_fetch_assoc($query);
             
             // Check password (handles both plain text and hashed passwords safely)
-            if ($password === $user['password'] || password_verify($password, $user['password'])) {
+                if ((int)$user['is_verified'] === 0) {
+                    $error_msg = "Please verify your email before logging in.";
+                } elseif ($password === $user['password'] || password_verify($password, $user['password'])) {
                 
                 $safe_role = strtolower($user['role']);
                 

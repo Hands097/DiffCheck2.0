@@ -683,11 +683,11 @@ $result = mysqli_query($conn, $sql);
         <?php if (isset($_SESSION['first_name'])): ?>
         <div class="user-menu" id="userMenu">
             <div class="user-avatar" id="avatarBtn">
-                <?php echo strtoupper(substr($_SESSION['first_name'], 0, 2)); ?>
+                <?php echo strtoupper(substr($_SESSION['first_name'] ?? 'U', 0, 1) . substr($_SESSION['last_name'] ?? '', 0, 1)); ?>
             </div>
             <div class="user-dropdown">
                 <div class="dropdown-header">
-<div class="dropdown-name"><?php echo htmlspecialchars($_SESSION['first_name'] . ' ' . $_SESSION['last_name']); ?></div>
+<div class="dropdown-name"><?php echo htmlspecialchars(($_SESSION['first_name'] ?? '') . ' ' . ($_SESSION['last_name'] ?? '')); ?></div>
                     <div class="dropdown-role">
                         <?php 
                             $role = strtolower($_SESSION['role'] ?? '');

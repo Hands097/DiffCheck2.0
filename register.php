@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         if (mysqli_num_rows($check) > 0) {
             $error_msg = "An account with that email already exists.";
         } else {
-            $otp = str_pad(rand(0, 999999), 6, '0', STR_PAD_LEFT);
+            $otp = str_pad(random_int(0, 999999), 6, '0', STR_PAD_LEFT);
             $expires_at = date('Y-m-d H:i:s', strtotime('+10 minutes'));
             $hashed_password = password_hash($password, PASSWORD_DEFAULT);
 
@@ -52,10 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 exit();
             } else {
                 $error_msg = "Failed to send verification email. Please try again.";
-            }
-            $_SESSION['pending_email'] = $email;
-            echo "Session set: " . $_SESSION['pending_email']; // add this
-            die(); // add this            
+            }           
         }
     }
 }
