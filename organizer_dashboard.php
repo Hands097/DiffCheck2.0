@@ -697,12 +697,12 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
     <nav class="sidebar-nav">
         <div class="nav-category">Event Management</div>
         <a class="nav-item active" id="nav-tab-overview" onclick="switchTab('tab-overview', this)"><i class="fa-solid fa-chart-line"></i> Statistics</a>
-        <a class="nav-item" id="nav-tab-create"   onclick="switchTab('tab-create',   this)"><i class="fa-solid fa-plus-circle"></i> Create Event</a>
-        <a class="nav-item" id="nav-tab-manage"   onclick="switchTab('tab-manage',   this)"><i class="fa-solid fa-list-check"></i> Manage Registrations</a>
-        <a class="nav-item" id="nav-tab-archive"  onclick="switchTab('tab-archive',  this)"><i class="fa-solid fa-box-archive"></i> Archived Events</a>
+        <a class="nav-item" id="nav-tab-create"   onclick="switchTab('tab-create',   this)"><i class="fa-solid fa-plus-circle"></i> Create Tournament</a>
+        <a class="nav-item" id="nav-tab-manage"   onclick="switchTab('tab-manage',   this)"><i class="fa-solid fa-list-check"></i> Manage Tournaments</a>
+        <a class="nav-item" id="nav-tab-archive"  onclick="switchTab('tab-archive',  this)"><i class="fa-solid fa-box-archive"></i> Archived Tournaments</a>
 
         <div class="nav-category">Public Platform</div>
-        <a href="tournaments.php" class="nav-item"><i class="fa-solid fa-trophy"></i> Browse Events</a>
+        <a href="tournaments.php" class="nav-item"><i class="fa-solid fa-trophy"></i> Browse Tournaments</a>
 
         <div class="nav-category">System</div>
         <a onclick="document.getElementById('signout-modal').classList.add('active')" class="nav-item" style="color:var(--teal); cursor:pointer;"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</a>
@@ -801,11 +801,11 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
                                             <div class="action-cell">
                                                 <a href="view_tournament.php?id=<?php echo $t['id']; ?>" class="btn-action"><i class="fa-solid fa-eye"></i> View</a>
                                                 <?php if ($t['status'] === 'pending' || $t['status'] === 'completed'): ?>
-                                                    <button type="button" onclick="handleAjaxAction('archive_tournament', <?php echo $t['id']; ?>, this)" class="btn-action btn-archive">
+                                                    <button type="button" onclick="openArchiveModal(<?php echo $t['id']; ?>, this)" class="btn-action btn-archive">
                                                         <i class="fa-solid fa-trash-can"></i> Archive
                                                     </button>
                                                 <?php else: ?>
-                                                    <button type="button" class="btn-action" style="opacity:0.5;cursor:not-allowed;" onclick="alert('You cannot archive an event while it is active!')">
+                                                    <button type="button" class="btn-action" style="opacity:0.5;cursor:not-allowed;" onclick="openArchiveBlockedModal()">
                                                         <i class="fa-solid fa-box-archive"></i> Archive
                                                     </button>
                                                 <?php endif; ?>
@@ -931,7 +931,7 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
                                                         </button>
                                                     </form>
                                                 <?php else: ?>
-                                                    <button type="button" class="btn-action" style="opacity:0.5;cursor:not-allowed;" onclick="alert('You need a minimum of 3 accepted squads to start the tournament!')">
+                                                    <button type="button" class="btn-action" style="opacity:0.5;cursor:not-allowed;" onclick="openNotEnoughSquadsModal()">
                                                         <i class="fa-solid fa-play"></i> Start / Lock Bracket
                                                     </button>
                                                 <?php endif; ?>
@@ -948,11 +948,11 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
                                             <?php endif; ?>
 
                                             <?php if ($t['status'] === 'pending' || $t['status'] === 'completed'): ?>
-                                                <button type="button" onclick="handleAjaxAction('archive_tournament', <?php echo $t['id']; ?>, this)" class="btn-action btn-archive">
+                                                <button type="button" onclick="openArchiveModal(<?php echo $t['id']; ?>, this)" class="btn-action btn-archive">
                                                     <i class="fa-solid fa-box-archive"></i> Archive
                                                 </button>
                                             <?php else: ?>
-                                                <button type="button" class="btn-action" style="opacity:0.5;cursor:not-allowed;" onclick="alert('You cannot archive an event while it is active!')">
+                                                <button type="button" class="btn-action" style="opacity:0.5;cursor:not-allowed;" onclick="openArchiveBlockedModal()">
                                                     <i class="fa-solid fa-box-archive"></i> Archive
                                                 </button>
                                             <?php endif; ?>
@@ -1193,6 +1193,42 @@ $js_all_brackets = json_encode($all_brackets, JSON_UNESCAPED_UNICODE);
     </div>
 </div>
 
+<!-- ARCHIVE TOURNAMENT MODAL -->
+<div id="archive-tournament-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon" style="background:rgba(243,156,18,0.1);border-color:rgba(243,156,18,0.25);color:var(--orange);"><i class="fa-solid fa-box-archive"></i></div>
+        <div class="modal-title">Archive Tournament</div>
+        <div class="modal-text" id="archive-tournament-modal-text">Archive this tournament? It will be moved to your archived list and hidden from the public.</div>
+        <div class="modal-actions">
+            <button class="btn-modal-cancel" onclick="document.getElementById('archive-tournament-modal').classList.remove('active')">Cancel</button>
+            <button class="btn-modal-confirm" id="archiveTournamentConfirmBtn" style="background:var(--orange);color:#000;"><i class="fa-solid fa-box-archive"></i> Archive</button>
+        </div>
+    </div>
+</div>
+
+<!-- ARCHIVE BLOCKED MODAL (tournament is active) -->
+<div id="not-enough-squads-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon" style="background:rgba(243,156,18,0.1);border-color:rgba(243,156,18,0.25);color:var(--orange);"><i class="fa-solid fa-triangle-exclamation"></i></div>
+        <div class="modal-title">Not Enough Squads</div>
+        <div class="modal-text">You need a minimum of <strong style="color:#fff;">3 accepted squads</strong> to start or lock the tournament bracket.</div>
+        <div class="modal-actions">
+            <button class="btn-modal-confirm" onclick="document.getElementById('not-enough-squads-modal').classList.remove('active')" style="flex:1;">Got It</button>
+        </div>
+    </div>
+</div>
+
+<div id="archive-blocked-modal" class="modal-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+    <div class="modal-box">
+        <div class="modal-icon" style="background:rgba(255,71,87,0.1);border-color:rgba(255,71,87,0.25);color:var(--red);"><i class="fa-solid fa-circle-exclamation"></i></div>
+        <div class="modal-title">Cannot Archive</div>
+        <div class="modal-text">You cannot archive a tournament while it is <strong style="color:#fff;">active</strong>. Complete or cancel the event first.</div>
+        <div class="modal-actions">
+            <button class="btn-modal-confirm" onclick="document.getElementById('archive-blocked-modal').classList.remove('active')" style="flex:1;">Got It</button>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <script>
 // ── MODAL OPENERS ──
@@ -1217,9 +1253,24 @@ function openRestoreModal(tid) {
     document.getElementById('restore-tournament-modal').classList.add('active');
 }
 
+function openArchiveModal(id, buttonElement) {
+    document.getElementById('archiveTournamentConfirmBtn').onclick = function() {
+        document.getElementById('archive-tournament-modal').classList.remove('active');
+        handleAjaxAction('archive_tournament', id, buttonElement);
+    };
+    document.getElementById('archive-tournament-modal').classList.add('active');
+}
+
+function openNotEnoughSquadsModal() {
+    document.getElementById('not-enough-squads-modal').classList.add('active');
+}
+
+function openArchiveBlockedModal() {
+    document.getElementById('archive-blocked-modal').classList.add('active');
+}
+
 // ── AJAX HELPER ──
 function handleAjaxAction(action, id, buttonElement) {
-    if (action === 'archive_tournament' && !confirm('Are you sure you want to archive this tournament?')) return;
 
     const row = buttonElement.closest('tr');
     const fd  = new URLSearchParams();

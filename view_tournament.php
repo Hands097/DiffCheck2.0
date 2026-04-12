@@ -324,8 +324,10 @@ for ($r = 1; $r <= $total_rounds; $r++) {
             flex: 1; min-height: 0; background: var(--bg-panel);
             border: 1px solid var(--border); border-radius: 12px;
             padding: 28px; overflow: auto;
-            display: flex; align-items: center; justify-content: center;
+            display: flex; align-items: flex-start; justify-content: center;
         }
+        /* Allow small brackets to stay vertically centered when shorter than container */
+        .bracket-wrapper .bracket { margin: auto; }
         .bracket { display: flex; align-items: stretch; min-width: max-content; min-height: max-content; }
 
         /* ── ROUND COLUMNS ── */

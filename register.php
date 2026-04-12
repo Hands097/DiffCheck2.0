@@ -1,5 +1,4 @@
 <?php
-ini_set('session.save_path', 'C:/xampp/tmp');
 session_start();
 include('db.php');
 include('mailer.php');

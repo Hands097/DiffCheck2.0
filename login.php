@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $error_msg = "Password must be between 6 and 15 characters.";
     } else {
         // Look for the user by Email ONLY
-        $query = mysqli_query($conn, "SELECT * FROM users WHERE email='$email'");
+        $query = mysqli_query($conn, "SELECT * FROM users WHERE email='$email' AND is_deleted=0");
         
         if ($query && mysqli_num_rows($query) > 0) {
             $user = mysqli_fetch_assoc($query);
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Check password (handles both plain text and hashed passwords safely)
                 if ((int)$user['is_verified'] === 0) {
                     $error_msg = "Please verify your email before logging in.";
-                } elseif ($password === $user['password'] || password_verify($password, $user['password'])) {
+                } elseif (password_verify($password, $user['password'])) {
                 
                 $safe_role = strtolower($user['role']);
                 

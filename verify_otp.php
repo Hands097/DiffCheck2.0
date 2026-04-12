@@ -108,7 +108,7 @@ if (mysqli_num_rows($result) > 0) {
 <body>
 <div class="auth-wrapper">
     <div class="auth-card">
-        <img src="pic/logoV4.png" alt="DiffCheck Logo">
+        <img src="pic/DiffcheckLogoNoBG.png" alt="DiffCheck Logo">
         <h2>Check Your Email</h2>
         <p>We sent a 6-digit code to<br><span><?= htmlspecialchars($email) ?></span></p>
 

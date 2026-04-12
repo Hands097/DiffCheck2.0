@@ -34,7 +34,7 @@ if (isset($_POST['edit_player'])) {
     mysqli_query($conn, "UPDATE players SET name='$name', ign='$ign', game='$game', role='$role' WHERE id='$player_id'");
     $_SESSION['system_message'] = "Player '$ign' updated successfully!";
     $_SESSION['msg_type'] = "success";
-    header("Location: manager_dashboard.php");
+    header("Location: manager_dashboard.php?tab=tab-players");
     exit();
 }
 ?>
@@ -112,7 +112,7 @@ if (isset($_POST['edit_player'])) {
         <div class="brand-subtitle">Tournament System</div>
     </div>
     <nav class="sidebar-nav">
-        <a href="manager_dashboard.php" class="nav-item"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+        <a href="manager_dashboard.php?tab=tab-players" class="nav-item"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
         <a href="#" class="nav-item active"><i class="fa-solid fa-pen"></i> Edit Player</a>
     </nav>
 </aside>
