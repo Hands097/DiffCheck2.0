@@ -634,6 +634,7 @@ $result = mysqli_query($conn, $sql);
             text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.6);
             animation: slideUp 0.25s ease;
         }
+        @keyframes fadeIn  { from { opacity:0; } to { opacity:1; } }
         @keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
         .modal-icon {
             width: 64px; height: 64px; border-radius: 50%;
@@ -941,20 +942,18 @@ $result = mysqli_query($conn, $sql);
         });
     }
 
-    // Auto-dismiss alerts
-    document.addEventListener('DOMContentLoaded', function() {
-        const alert = document.querySelector('.alert');
-        if (alert) {
+    // Auto-dismiss alerts (script runs at bottom of body, DOM is already ready)
+    (function() {
+        const alertEl = document.querySelector('.alert');
+        if (alertEl) {
             setTimeout(() => {
-                alert.style.transition = 'opacity 0.5s';
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 500);
+                alertEl.style.transition = 'opacity 0.5s';
+                alertEl.style.opacity = '0';
+                setTimeout(() => alertEl.remove(), 500);
             }, 3000);
         }
-        if (document.querySelector('.alert-success')) {
-            document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('active'));
-        }
-    });
+        // Removed: blanket modal-clearing on alert-success was preventing the sign-out modal from showing
+    })();
 </script>
 
 <footer style="text-align: center; padding: 24px; border-top: 1px solid #1e2a38; color: #3d5468; font-size: 13px; font-weight: 500; background: #0f1318; margin-top: auto; flex-shrink: 0;">
